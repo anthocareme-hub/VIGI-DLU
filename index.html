@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VIGI-DLU">
 <meta name="theme-color" content="#0F5E5A">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
@@ -719,7 +719,7 @@ function deleteItem(kitId, itemId){
 }
 
 /* ---------- Scanner ---------- */
-let scanStream = null, scanRAF = null;
+let scanStream = null, zxingControls = null;
 function openScanner(){
   showModal(`
     <h2>Scanner un code</h2>
@@ -743,40 +743,38 @@ async function startScanner(){
   const zone = document.getElementById('scanZone');
   const msg = document.getElementById('scanMsg');
   if(!zone) return;
+  if(typeof ZXing === 'undefined'){
+    if(msg) msg.textContent = "La librairie de scan n'a pas pu se charger (connexion internet requise la première fois). Utilisez la saisie manuelle ci-dessous.";
+    return;
+  }
   try{
-    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     const video = document.createElement('video');
     video.setAttribute('playsinline','');
-    video.srcObject = scanStream;
+    video.muted = true;
     zone.innerHTML = '';
     zone.appendChild(video);
     const frame = document.createElement('div');
     frame.className='scan-frame';
     zone.appendChild(frame);
-    await video.play();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const tick = ()=>{
-      if(!scanStream) return;
-      if(video.readyState === video.HAVE_ENOUGH_DATA){
-        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-        ctx.drawImage(video,0,0,canvas.width,canvas.height);
-        const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
-        if(window.jsQR){
-          const code = window.jsQR(imgData.data, imgData.width, imgData.height);
-          if(code && code.data){ onCodeDetected(code.data); return; }
+
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    zxingControls = await codeReader.decodeFromConstraints(
+      { video: { facingMode: 'environment' } },
+      video,
+      (result, err, controls) => {
+        if(result){
+          controls.stop();
+          zxingControls = null;
+          onCodeDetected(result.getText());
         }
       }
-      scanRAF = requestAnimationFrame(tick);
-    };
-    scanRAF = requestAnimationFrame(tick);
+    );
   }catch(e){
     if(msg) msg.textContent = "Caméra non disponible ici. Utilisez la saisie manuelle ci-dessous.";
   }
 }
 function stopScanner(){
-  if(scanRAF) cancelAnimationFrame(scanRAF);
-  scanRAF = null;
+  if(zxingControls){ try{ zxingControls.stop(); }catch(e){} zxingControls = null; }
   if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream = null; }
 }
 function onCodeDetected(raw){
