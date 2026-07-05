@@ -196,7 +196,11 @@
     box-shadow:0 0 0 999px rgba(0,0,0,0.25);
   }
   .scan-msg{ color:#fff; font-size:12.5px; text-align:center; padding:0 20px; }
-  .divider-or{
+  .scan-status{
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--ink-soft);
+    text-align:center; margin:-6px 0 14px; min-height:16px; word-break:break-word;
+  }
+  .scan-status.err{ color:var(--red); }
     text-align:center; font-size:11px; color:var(--ink-soft); margin:14px 0;
     display:flex; align-items:center; gap:10px;
   }
@@ -727,6 +731,7 @@ function openScanner(){
     <div class="scan-zone" id="scanZone">
       <div class="scan-msg" id="scanMsg">Initialisation de la caméra…</div>
     </div>
+    <div class="scan-status" id="scanStatus">Recherche en cours…</div>
     <div class="divider-or">ou</div>
     <div class="field">
       <label>Coller / saisir le code manuellement</label>
@@ -742,11 +747,13 @@ function openScanner(){
 async function startScanner(){
   const zone = document.getElementById('scanZone');
   const msg = document.getElementById('scanMsg');
+  const status = document.getElementById('scanStatus');
   if(!zone) return;
   if(typeof ZXing === 'undefined'){
     if(msg) msg.textContent = "La librairie de scan n'a pas pu se charger (connexion internet requise la première fois). Utilisez la saisie manuelle ci-dessous.";
     return;
   }
+  let frameCount = 0;
   try{
     const video = document.createElement('video');
     video.setAttribute('playsinline','');
@@ -762,15 +769,28 @@ async function startScanner(){
       { video: { facingMode: 'environment' } },
       video,
       (result, err, controls) => {
+        frameCount++;
         if(result){
           controls.stop();
           zxingControls = null;
+          if(status) status.textContent = 'Code trouvé !';
           onCodeDetected(result.getText());
+          return;
+        }
+        if(err){
+          const name = err.name || '';
+          if(name === 'NotFoundException' || name === 'ChecksumException' || name === 'FormatException'){
+            if(status) status.textContent = `Recherche en cours… (${frameCount} images analysées, aucun code net détecté)`;
+          } else {
+            if(status){ status.textContent = `Erreur pendant le scan : ${name} — ${err.message||''}`; status.classList.add('err'); }
+          }
         }
       }
     );
+    if(status) status.textContent = 'Caméra active — recherche en cours…';
   }catch(e){
     if(msg) msg.textContent = "Caméra non disponible ici. Utilisez la saisie manuelle ci-dessous.";
+    if(status){ status.textContent = `Erreur d'initialisation : ${e.name||''} — ${e.message||e}`; status.classList.add('err'); }
   }
 }
 function stopScanner(){
