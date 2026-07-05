@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>VIGI-DLU</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VIGI-DLU">
+<meta name="theme-color" content="#0F5E5A">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+  :root{
+    --bg: #F6F7F5;
+    --paper: #FFFFFF;
+    --ink: #12232E;
+    --ink-soft: #4C5E67;
+    --teal: #0F5E5A;
+    --teal-soft: #E3EEEC;
+    --neutral-line: #3B7A8C;
+    --line: #DCE3DF;
+    --orange: #E08A2E;
+    --orange-bg: #FDF1E1;
+    --red: #C1352B;
+    --red-bg: #FBEAE8;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(18,35,46,0.06), 0 8px 20px -12px rgba(18,35,46,0.15);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    display:flex; justify-content:center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #phone{
+    width:100%; max-width:430px; min-height:100vh;
+    background:var(--bg); position:relative;
+    display:flex; flex-direction:column;
+    border-left:1px solid var(--line); border-right:1px solid var(--line);
+  }
+  header.topbar{
+    padding:18px 20px 14px; background:var(--paper);
+    border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:20;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px;
+  }
+  .brand-mark{
+    width:34px; height:34px; border-radius:9px;
+    background:var(--teal); color:#fff; display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px;
+    flex-shrink:0;
+  }
+  .brand h1{
+    font-family:'Space Grotesk',sans-serif; font-size:19px; margin:0; letter-spacing:0.02em; font-weight:700;
+  }
+  .brand small{
+    display:block; color:var(--ink-soft); font-size:11.5px; margin-top:1px; letter-spacing:0.03em;
+  }
+  .back-row{ display:flex; align-items:center; gap:10px; }
+  .icon-btn{
+    width:36px; height:36px; border-radius:10px; border:1px solid var(--line);
+    background:var(--paper); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; color:var(--ink); flex-shrink:0;
+  }
+  .icon-btn:active{ background:var(--teal-soft); }
+
+  main{ flex:1; padding:16px 16px 100px; overflow-y:auto; }
+
+  .section-label{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.08em;
+    text-transform:uppercase; color:var(--ink-soft); margin:18px 2px 8px;
+  }
+
+  /* Home - kit tags */
+  .kit-grid{ display:flex; flex-direction:column; gap:10px; }
+  .kit-tag{
+    background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:14px 14px 14px 0; position:relative;
+    display:flex; align-items:stretch; gap:12px; cursor:pointer; overflow:hidden;
+  }
+  .kit-tab{ width:7px; flex-shrink:0; border-radius:0; }
+  .kit-tab.status-far{ background:var(--line); }
+  .kit-tab.status-soon{ background:var(--orange); }
+  .kit-tab.status-expired{ background:var(--red); }
+  .kit-body{ flex:1; display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .kit-name{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; }
+  .kit-meta{ font-size:12.5px; color:var(--ink-soft); }
+  .kit-badge-row{ display:flex; gap:6px; margin-top:4px; flex-wrap:wrap; }
+  .pill{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; padding:2px 8px; border-radius:999px;
+    border:1px solid var(--line); color:var(--ink-soft);
+  }
+  .pill.orange{ background:var(--orange-bg); color:#95591b; border-color:transparent; }
+  .pill.red{ background:var(--red-bg); color:var(--red); border-color:transparent; }
+  .kit-delete{ position:absolute; top:8px; right:8px; }
+
+  .empty-state{
+    text-align:center; padding:50px 20px; color:var(--ink-soft);
+  }
+  .empty-state .glyph{ font-size:30px; margin-bottom:10px; }
+  .empty-state p{ font-size:13.5px; line-height:1.5; margin:6px 0 0; }
+
+  .fab-row{ display:flex; gap:10px; margin-top:16px; }
+  .btn{
+    font-family:'IBM Plex Sans',sans-serif; font-weight:600; font-size:14px;
+    border-radius:11px; padding:12px 16px; border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-primary{ background:var(--teal); color:#fff; }
+  .btn-primary:active{ background:#0c4a47; }
+  .btn-outline{ background:var(--paper); color:var(--teal); border:1.5px solid var(--teal); }
+  .btn-outline:active{ background:var(--teal-soft); }
+  .btn-block{ width:100%; }
+  .btn-danger-outline{ background:var(--paper); color:var(--red); border:1.5px solid var(--red); }
+
+  .alert-btn{
+    width:100%; background:linear-gradient(135deg,#fff,var(--orange-bg));
+    border:1px solid #f0d3ab; border-radius:var(--radius); padding:14px;
+    display:flex; align-items:center; gap:12px; cursor:pointer; margin-top:18px;
+    box-shadow:var(--shadow);
+  }
+  .alert-btn .num{
+    font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; color:var(--orange);
+    background:#fff; border:1.5px solid var(--orange); width:42px; height:42px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .alert-btn .txt{ text-align:left; }
+  .alert-btn .txt b{ display:block; font-size:14px; }
+  .alert-btn .txt span{ font-size:12px; color:var(--ink-soft); }
+
+  /* Kit detail - blister strip rows */
+  .item-group{
+    background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
+    padding:12px 14px; margin-bottom:10px; box-shadow:var(--shadow);
+  }
+  .item-group-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .item-name{ font-weight:600; font-size:14.5px; }
+  .item-qty{ font-size:11.5px; color:var(--ink-soft); margin-top:2px; }
+  .item-actions{ display:flex; gap:6px; }
+  .mini-btn{
+    border:none; background:transparent; color:var(--ink-soft); cursor:pointer; font-size:16px;
+    width:26px; height:26px; display:flex; align-items:center; justify-content:center; border-radius:7px;
+  }
+  .mini-btn:active{ background:var(--line); }
+
+  .blister-strip{ display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .blister-cell{
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; border-radius:9px;
+    padding:6px 9px; border:1px solid var(--line); color:var(--ink-soft); position:relative;
+    background:var(--bg); cursor:pointer;
+  }
+  .blister-cell.status-soon{ background:var(--orange-bg); color:#95591b; border-color:transparent; }
+  .blister-cell.status-expired{ background:var(--red-bg); color:var(--red); border-color:transparent; }
+  .blister-cell.leading{ box-shadow:0 0 0 1.5px var(--teal) inset; font-weight:600; }
+  .blister-cell .lot{ opacity:0.7; font-size:10px; display:block; }
+
+  /* Modals / sheets */
+  .overlay{
+    position:fixed; inset:0; background:rgba(18,35,46,0.45); z-index:50;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .sheet{
+    width:100%; max-width:430px; background:var(--paper); border-radius:20px 20px 0 0;
+    padding:20px 20px 26px; max-height:88vh; overflow-y:auto;
+    animation:rise 0.22s ease-out;
+  }
+  @keyframes rise{ from{ transform:translateY(16px); opacity:0.4;} to{ transform:translateY(0); opacity:1;} }
+  .sheet h2{ font-family:'Space Grotesk',sans-serif; font-size:18px; margin:0 0 4px; }
+  .sheet .sub{ font-size:12.5px; color:var(--ink-soft); margin-bottom:16px; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12px; color:var(--ink-soft); margin-bottom:5px; font-weight:500; }
+  .field input, .field select{
+    width:100%; padding:11px 12px; border-radius:10px; border:1.3px solid var(--line);
+    font-size:14.5px; font-family:'IBM Plex Sans',sans-serif; background:var(--bg); color:var(--ink);
+  }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--teal); }
+  .row2{ display:flex; gap:10px; }
+  .row2 .field{ flex:1; }
+  .sheet-actions{ display:flex; gap:10px; margin-top:6px; }
+
+  .scan-zone{
+    position:relative; border-radius:14px; overflow:hidden; background:#0b1a20; aspect-ratio:1/1;
+    display:flex; align-items:center; justify-content:center; margin-bottom:14px;
+  }
+  .scan-zone video{ width:100%; height:100%; object-fit:cover; }
+  .scan-frame{
+    position:absolute; inset:18%; border:2px solid #fff; border-radius:14px; opacity:0.85;
+    box-shadow:0 0 0 999px rgba(0,0,0,0.25);
+  }
+  .scan-msg{ color:#fff; font-size:12.5px; text-align:center; padding:0 20px; }
+  .divider-or{
+    text-align:center; font-size:11px; color:var(--ink-soft); margin:14px 0;
+    display:flex; align-items:center; gap:10px;
+  }
+  .divider-or::before, .divider-or::after{ content:""; flex:1; height:1px; background:var(--line); }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:10px; font-size:13px;
+    z-index:80; opacity:0; pointer-events:none; transition:opacity 0.25s;
+  }
+  .toast.show{ opacity:1; }
+
+  .bulletin-kit{ font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.06em; color:var(--ink-soft); margin:16px 2px 6px; }
+</style>
+</head>
+<body>
+<div id="phone">
+  <header class="topbar" id="topbar"></header>
+  <main id="main"></main>
+</div>
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- State & persistence ---------- */
+let state = { kits: [], view:'home', currentKitId:null };
+let saveTimer = null;
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem('vigidlu-data');
+    if(raw) state.kits = JSON.parse(raw);
+  }catch(e){ state.kits = []; }
+  render();
+}
+function persist(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    try{ localStorage.setItem('vigidlu-data', JSON.stringify(state.kits)); }
+    catch(e){ showToast("Échec de l'enregistrement"); }
+  }, 150);
+}
+function uid(){ return Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
+
+/* ---------- Date helpers ---------- */
+function daysUntil(dateStr){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr+"T00:00:00");
+  return Math.round((d-today)/86400000);
+}
+function statusOf(dateStr){
+  const days = daysUntil(dateStr);
+  if(days < 0) return 'expired';
+  if(days <= 30) return 'soon';
+  return 'far';
+}
+function fmtDate(dateStr){
+  const d = new Date(dateStr+"T00:00:00");
+  return d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+function statusLabel(dateStr){
+  const days = daysUntil(dateStr);
+  if(days < 0) return `Périmé depuis ${Math.abs(days)} j`;
+  if(days === 0) return "Périme aujourd'hui";
+  if(days <= 30) return `Dans ${days} j`;
+  return `Dans ${days} j`;
+}
+
+/* ---------- GS1 parsing (best effort) ---------- */
+function parseGS1(raw){
+  // strips FNC1 (ASCII 29) and normalizes
+  let s = raw.replace(/\x1d/g, '|');
+  let result = { gtin:null, expiry:null, lot:null, serial:null, raw };
+  // bracketed human-readable form: (01)... (17)YYMMDD (10)LOT
+  const bracketRe = /\((\d{2,4})\)([^\(]*)/g;
+  let m; let found=false;
+  while((m = bracketRe.exec(s))){
+    found = true;
+    const ai = m[1], val = m[2].replace('|','');
+    if(ai==='01') result.gtin = val.slice(0,14);
+    if(ai==='17') result.expiry = val.slice(0,6);
+    if(ai==='10') result.lot = val;
+    if(ai==='21') result.serial = val;
+  }
+  if(!found){
+    // concatenated form without parentheses: 01 + 14digits, then optional 17+6digits, 10+lot(var)
+    let rest = s;
+    const aiRe = /^(01)(\d{14})|^(17)(\d{6})|^(10)([^\|]*)\|?|^(21)([^\|]*)\|?/;
+    let guard=0;
+    while(rest.length && guard<10){
+      guard++;
+      const mm = rest.match(aiRe);
+      if(!mm) break;
+      if(mm[1]==='01'){ result.gtin=mm[2]; rest=rest.slice(2+14); }
+      else if(mm[3]==='17'){ result.expiry=mm[4]; rest=rest.slice(2+6); }
+      else if(mm[5]==='10'){ result.lot=mm[6]; rest=rest.slice(mm[0].length); }
+      else if(mm[7]==='21'){ result.serial=mm[8]; rest=rest.slice(mm[0].length); }
+      else break;
+    }
+  }
+  if(result.expiry && /^\d{6}$/.test(result.expiry)){
+    const yy = result.expiry.slice(0,2), mo = result.expiry.slice(2,4);
+    let dd = result.expiry.slice(4,6);
+    if(dd === '00') dd = '01'; // GS1 allows DD=00 meaning "end of month"; approximate to 1st
+    const yyyy = (parseInt(yy,10) < 70 ? '20'+yy : '19'+yy);
+    result.expiryISO = `${yyyy}-${mo}-${dd}`;
+  }
+  return result;
+}
+
+/* ---------- Grouping ---------- */
+function groupItems(items){
+  const map = {};
+  items.forEach(it=>{
+    const key = it.name.trim().toLowerCase();
+    if(!map[key]) map[key] = { name: it.name.trim(), entries: [] };
+    map[key].entries.push(it);
+  });
+  return Object.values(map).map(g=>{
+    g.entries.sort((a,b)=> a.expiry.localeCompare(b.expiry));
+    g.totalQty = g.entries.reduce((s,e)=> s+(e.quantity||1), 0);
+    g.nearest = g.entries[0];
+    g.status = statusOf(g.nearest.expiry);
+    return g;
+  }).sort((a,b)=> a.nearest.expiry.localeCompare(b.nearest.expiry));
+}
+function kitWorstStatus(kit){
+  if(!kit.items.length) return 'far';
+  let worst='far';
+  kit.items.forEach(it=>{
+    const s = statusOf(it.expiry);
+    if(s==='expired') worst='expired';
+    else if(s==='soon' && worst!=='expired') worst='soon';
+  });
+  return worst;
+}
+function kitCounts(kit){
+  let soon=0, expired=0;
+  kit.items.forEach(it=>{
+    const s = statusOf(it.expiry);
+    if(s==='soon') soon++; if(s==='expired') expired++;
+  });
+  return {soon, expired};
+}
+
+/* ---------- Toast ---------- */
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 1800);
+}
+
+/* ---------- Rendering ---------- */
+function render(){
+  renderTopbar();
+  if(state.view==='home') renderHome();
+  else if(state.view==='kit') renderKitDetail();
+  else if(state.view==='expiring') renderExpiring();
+}
+
+function renderTopbar(){
+  const bar = document.getElementById('topbar');
+  if(state.view==='home'){
+    bar.innerHTML = `
+      <div class="brand">
+        <div class="brand-mark">DLU</div>
+        <div>
+          <h1>VIGI-DLU</h1>
+          <small>Vigilance des péremptions</small>
+        </div>
+      </div>`;
+  } else if(state.view==='kit'){
+    const kit = state.kits.find(k=>k.id===state.currentKitId);
+    bar.innerHTML = `
+      <div class="back-row">
+        <button class="icon-btn" onclick="goHome()">←</button>
+        <div style="min-width:0;">
+          <h1 style="font-size:16.5px;">${escapeHtml(kit ? kit.name : '')}</h1>
+          <small style="color:var(--ink-soft); font-size:11px;">${kit ? kit.items.length : 0} élément(s)</small>
+        </div>
+      </div>`;
+  } else if(state.view==='expiring'){
+    bar.innerHTML = `
+      <div class="back-row">
+        <button class="icon-btn" onclick="goHome()">←</button>
+        <div>
+          <h1 style="font-size:16.5px;">À remplacer sous 30 j</h1>
+          <small style="color:var(--ink-soft); font-size:11px;">Tous kits confondus</small>
+        </div>
+      </div>`;
+  }
+}
+
+function renderHome(){
+  const main = document.getElementById('main');
+  let html = '';
+  if(!state.kits.length){
+    html += `
+      <div class="empty-state">
+        <div class="glyph">🩹</div>
+        <p>Aucun kit pour l'instant.<br>Ajoutez un premier kit (trousse, sac, armoire...) pour commencer le suivi.</p>
+      </div>`;
+  } else {
+    html += `<div class="kit-grid">`;
+    state.kits.forEach(kit=>{
+      const worst = kitWorstStatus(kit);
+      const c = kitCounts(kit);
+      html += `
+        <div class="kit-tag" onclick="openKit('${kit.id}')">
+          <div class="kit-tab status-${worst}"></div>
+          <div class="kit-body">
+            <div class="kit-name">${escapeHtml(kit.name)}</div>
+            <div class="kit-meta">${kit.items.length} élément(s)</div>
+            <div class="kit-badge-row">
+              ${c.expired ? `<span class="pill red">${c.expired} périmé(s)</span>` : ''}
+              ${c.soon ? `<span class="pill orange">${c.soon} ≤ 30 j</span>` : ''}
+              ${(!c.expired && !c.soon) ? `<span class="pill">rien à signaler</span>` : ''}
+            </div>
+          </div>
+          <button class="icon-btn kit-delete" onclick="event.stopPropagation(); deleteKit('${kit.id}')">🗑</button>
+        </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `
+    <div class="fab-row">
+      <button class="btn btn-primary btn-block" onclick="openAddKit()">+ Ajouter un kit</button>
+    </div>`;
+
+  const totalAlerts = state.kits.reduce((s,k)=> s + kitCounts(k).soon + kitCounts(k).expired, 0);
+  html += `
+    <button class="alert-btn" onclick="goExpiring()">
+      <div class="num">${totalAlerts}</div>
+      <div class="txt"><b>Éléments à remplacer</b><span>Périmés ou périmant sous 30 jours</span></div>
+    </button>`;
+
+  main.innerHTML = html;
+}
+
+function renderKitDetail(){
+  const main = document.getElementById('main');
+  const kit = state.kits.find(k=>k.id===state.currentKitId);
+  if(!kit){ goHome(); return; }
+  const groups = groupItems(kit.items);
+  let html = '';
+  if(!groups.length){
+    html += `
+      <div class="empty-state">
+        <div class="glyph">📦</div>
+        <p>Ce kit est vide.<br>Ajoutez un élément manuellement ou scannez un code-barres / QR code.</p>
+      </div>`;
+  } else {
+    groups.forEach(g=>{
+      html += `
+        <div class="item-group">
+          <div class="item-group-head">
+            <div>
+              <div class="item-name">${escapeHtml(g.name)}</div>
+              <div class="item-qty">Qté totale : ${g.totalQty} — plus proche : ${fmtDate(g.nearest.expiry)} (${statusLabel(g.nearest.expiry)})</div>
+            </div>
+          </div>
+          <div class="blister-strip">
+            ${g.entries.map(e=>`
+              <div class="blister-cell status-${statusOf(e.expiry)} ${e.id===g.nearest.id?'leading':''}" onclick="openEditItem('${kit.id}','${e.id}')">
+                ${fmtDate(e.expiry)}${e.quantity>1?` ×${e.quantity}`:''}
+                ${e.lot?`<span class="lot">lot ${escapeHtml(e.lot)}</span>`:''}
+              </div>`).join('')}
+          </div>
+        </div>`;
+    });
+  }
+  html += `
+    <div class="fab-row">
+      <button class="btn btn-outline" style="flex:1;" onclick="openScanner()">📷 Scanner</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="openAddItem()">+ Manuellement</button>
+    </div>`;
+  main.innerHTML = html;
+}
+
+function renderExpiring(){
+  const main = document.getElementById('main');
+  let all = [];
+  state.kits.forEach(kit=>{
+    groupItems(kit.items).forEach(g=>{
+      if(g.status !== 'far') all.push({kitName: kit.name, kitId: kit.id, group:g});
+    });
+  });
+  all.sort((a,b)=> a.group.nearest.expiry.localeCompare(b.group.nearest.expiry));
+
+  let html='';
+  if(!all.length){
+    html += `
+      <div class="empty-state">
+        <div class="glyph">✅</div>
+        <p>Rien à signaler.<br>Aucun élément périmé ou périmant sous 30 jours.</p>
+      </div>`;
+  } else {
+    let lastKit = null;
+    all.forEach(row=>{
+      if(row.kitName !== lastKit){
+        html += `<div class="bulletin-kit">${escapeHtml(row.kitName)}</div>`;
+        lastKit = row.kitName;
+      }
+      const g = row.group;
+      html += `
+        <div class="item-group" onclick="openKit('${row.kitId}')" style="cursor:pointer;">
+          <div class="item-group-head">
+            <div>
+              <div class="item-name">${escapeHtml(g.name)}</div>
+              <div class="item-qty">Qté ${g.totalQty} — ${fmtDate(g.nearest.expiry)}</div>
+            </div>
+            <span class="pill ${g.status==='expired'?'red':'orange'}">${statusLabel(g.nearest.expiry)}</span>
+          </div>
+        </div>`;
+    });
+  }
+  main.innerHTML = html;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- Navigation ---------- */
+function goHome(){ state.view='home'; state.currentKitId=null; stopScanner(); render(); }
+function openKit(id){ state.view='kit'; state.currentKitId=id; closeModal(); render(); }
+function goExpiring(){ state.view='expiring'; render(); }
+
+/* ---------- Kit CRUD ---------- */
+function openAddKit(){
+  showModal(`
+    <h2>Nouveau kit</h2>
+    <div class="sub">Trousse, sac, armoire à pharmacie...</div>
+    <div class="field">
+      <label>Nom du kit</label>
+      <input id="kitNameInput" type="text" placeholder="Ex. Trousse voiture" autofocus>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-outline" style="flex:1;" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="submitAddKit()">Créer</button>
+    </div>
+  `);
+  setTimeout(()=> document.getElementById('kitNameInput')?.focus(), 50);
+}
+function submitAddKit(){
+  const name = document.getElementById('kitNameInput').value.trim();
+  if(!name){ showToast('Nom requis'); return; }
+  state.kits.push({ id: uid(), name, items: [] });
+  persist(); closeModal(); render();
+  showToast('Kit créé');
+}
+function deleteKit(id){
+  const kit = state.kits.find(k=>k.id===id);
+  if(!kit) return;
+  showModal(`
+    <h2>Supprimer « ${escapeHtml(kit.name)} » ?</h2>
+    <div class="sub">Tous les éléments de ce kit seront supprimés définitivement.</div>
+    <div class="sheet-actions">
+      <button class="btn btn-outline" style="flex:1;" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-danger-outline" style="flex:1;" onclick="confirmDeleteKit('${id}')">Supprimer</button>
+    </div>
+  `);
+}
+function confirmDeleteKit(id){
+  state.kits = state.kits.filter(k=>k.id!==id);
+  persist(); closeModal(); render();
+  showToast('Kit supprimé');
+}
+
+/* ---------- Item CRUD ---------- */
+function openAddItem(prefill){
+  prefill = prefill || {};
+  showModal(`
+    <h2>Ajouter un élément</h2>
+    <div class="sub">${prefill.barcode ? 'Code détecté — vérifiez et complétez les informations.' : 'Renseignez le médicament ou dispositif.'}</div>
+    <div class="field">
+      <label>Nom</label>
+      <input id="itName" type="text" placeholder="Ex. Compresses stériles" value="${escapeHtml(prefill.name||'')}">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Date de péremption</label>
+        <input id="itExpiry" type="date" value="${prefill.expiryISO||''}">
+      </div>
+      <div class="field">
+        <label>Quantité</label>
+        <input id="itQty" type="number" min="1" value="${prefill.quantity||1}">
+      </div>
+    </div>
+    <div class="field">
+      <label>Lot (optionnel)</label>
+      <input id="itLot" type="text" placeholder="Ex. L2306A" value="${escapeHtml(prefill.lot||'')}">
+    </div>
+    <div class="field">
+      <label>Code scanné (optionnel)</label>
+      <input id="itBarcode" type="text" placeholder="GTIN / code brut" value="${escapeHtml(prefill.raw||prefill.barcode||'')}">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-outline" style="flex:1;" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="submitAddItem()">Ajouter</button>
+    </div>
+  `);
+}
+function submitAddItem(){
+  const name = document.getElementById('itName').value.trim();
+  const expiry = document.getElementById('itExpiry').value;
+  const qty = parseInt(document.getElementById('itQty').value,10) || 1;
+  const lot = document.getElementById('itLot').value.trim();
+  const barcode = document.getElementById('itBarcode').value.trim();
+  if(!name || !expiry){ showToast('Nom et date requis'); return; }
+  const kit = state.kits.find(k=>k.id===state.currentKitId);
+  kit.items.push({ id: uid(), name, expiry, quantity: qty, lot, barcode });
+  persist(); closeModal(); render();
+  showToast('Élément ajouté');
+}
+function openEditItem(kitId, itemId){
+  const kit = state.kits.find(k=>k.id===kitId);
+  const item = kit.items.find(i=>i.id===itemId);
+  if(!item) return;
+  showModal(`
+    <h2>Modifier l'élément</h2>
+    <div class="field">
+      <label>Nom</label>
+      <input id="itName" type="text" value="${escapeHtml(item.name)}">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Date de péremption</label>
+        <input id="itExpiry" type="date" value="${item.expiry}">
+      </div>
+      <div class="field">
+        <label>Quantité</label>
+        <input id="itQty" type="number" min="1" value="${item.quantity}">
+      </div>
+    </div>
+    <div class="field">
+      <label>Lot (optionnel)</label>
+      <input id="itLot" type="text" value="${escapeHtml(item.lot||'')}">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-danger-outline" style="flex:1;" onclick="deleteItem('${kitId}','${itemId}')">Supprimer</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="submitEditItem('${kitId}','${itemId}')">Enregistrer</button>
+    </div>
+  `);
+}
+function submitEditItem(kitId, itemId){
+  const kit = state.kits.find(k=>k.id===kitId);
+  const item = kit.items.find(i=>i.id===itemId);
+  item.name = document.getElementById('itName').value.trim() || item.name;
+  item.expiry = document.getElementById('itExpiry').value || item.expiry;
+  item.quantity = parseInt(document.getElementById('itQty').value,10) || 1;
+  item.lot = document.getElementById('itLot').value.trim();
+  persist(); closeModal(); render();
+  showToast('Élément mis à jour');
+}
+function deleteItem(kitId, itemId){
+  const kit = state.kits.find(k=>k.id===kitId);
+  kit.items = kit.items.filter(i=>i.id!==itemId);
+  persist(); closeModal(); render();
+  showToast('Élément supprimé');
+}
+
+/* ---------- Scanner ---------- */
+let scanStream = null, scanRAF = null;
+function openScanner(){
+  showModal(`
+    <h2>Scanner un code</h2>
+    <div class="sub">Code-barres (EAN) ou QR / Data Matrix (UDI GS1). Fonctionne selon les autorisations caméra de votre navigateur.</div>
+    <div class="scan-zone" id="scanZone">
+      <div class="scan-msg" id="scanMsg">Initialisation de la caméra…</div>
+    </div>
+    <div class="divider-or">ou</div>
+    <div class="field">
+      <label>Coller / saisir le code manuellement</label>
+      <input id="manualCode" type="text" placeholder="Ex. (01)03400... (17)261231 (10)LOT12">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-outline" style="flex:1;" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="submitManualCode()">Utiliser ce code</button>
+    </div>
+  `);
+  setTimeout(startScanner, 60);
+}
+async function startScanner(){
+  const zone = document.getElementById('scanZone');
+  const msg = document.getElementById('scanMsg');
+  if(!zone) return;
+  try{
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.createElement('video');
+    video.setAttribute('playsinline','');
+    video.srcObject = scanStream;
+    zone.innerHTML = '';
+    zone.appendChild(video);
+    const frame = document.createElement('div');
+    frame.className='scan-frame';
+    zone.appendChild(frame);
+    await video.play();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const tick = ()=>{
+      if(!scanStream) return;
+      if(video.readyState === video.HAVE_ENOUGH_DATA){
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video,0,0,canvas.width,canvas.height);
+        const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+        if(window.jsQR){
+          const code = window.jsQR(imgData.data, imgData.width, imgData.height);
+          if(code && code.data){ onCodeDetected(code.data); return; }
+        }
+      }
+      scanRAF = requestAnimationFrame(tick);
+    };
+    scanRAF = requestAnimationFrame(tick);
+  }catch(e){
+    if(msg) msg.textContent = "Caméra non disponible ici. Utilisez la saisie manuelle ci-dessous.";
+  }
+}
+function stopScanner(){
+  if(scanRAF) cancelAnimationFrame(scanRAF);
+  scanRAF = null;
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream = null; }
+}
+function onCodeDetected(raw){
+  stopScanner();
+  showToast('Code détecté');
+  handleScannedCode(raw);
+}
+function submitManualCode(){
+  const raw = document.getElementById('manualCode').value.trim();
+  if(!raw){ showToast('Saisissez un code'); return; }
+  stopScanner();
+  handleScannedCode(raw);
+}
+function handleScannedCode(raw){
+  const parsed = parseGS1(raw);
+  const prefill = {
+    raw,
+    barcode: parsed.gtin || raw,
+    lot: parsed.lot || '',
+    expiryISO: parsed.expiryISO || '',
+    quantity: 1,
+    name: ''
+  };
+  openAddItem(prefill);
+}
+
+/* ---------- Modal helpers ---------- */
+function showModal(innerHtml){
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `<div class="overlay" onclick="if(event.target===this) closeModal()"><div class="sheet">${innerHtml}</div></div>`;
+}
+function closeModal(){
+  stopScanner();
+  document.getElementById('modalRoot').innerHTML = '';
+}
+
+/* ---------- Init ---------- */
+loadState();
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
