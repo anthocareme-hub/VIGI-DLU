@@ -211,6 +211,19 @@
 
   .bulletin-kit{ font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase;
     letter-spacing:0.06em; color:var(--ink-soft); margin:16px 2px 6px; }
+
+  .location-header{
+    display:flex; align-items:center; gap:8px; margin:20px 2px 8px;
+  }
+  .location-header:first-child{ margin-top:2px; }
+  .location-header .name{
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; color:var(--teal);
+  }
+  .location-header .count{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft);
+  }
+  .location-header::after{ content:""; flex:1; height:1px; background:var(--line); }
+  .location-header.unassigned .name{ color:var(--ink-soft); font-style:italic; font-weight:500; }
 </style>
 </head>
 <body>
@@ -306,6 +319,24 @@ function parseGS1(raw){
     result.expiryISO = `${yyyy}-${mo}-${dd}`;
   }
   return result;
+}
+
+function groupByLocation(items){
+  const map = {};
+  items.forEach(it=>{
+    const loc = (it.location||'').trim();
+    const key = loc || '__none__';
+    if(!map[key]) map[key] = { name: loc, items: [] };
+    map[key].items.push(it);
+  });
+  const named = Object.values(map).filter(g=>g.name).sort((a,b)=> a.name.localeCompare(b.name,'fr'));
+  const unnamed = map['__none__'];
+  return unnamed ? [...named, unnamed] : named;
+}
+function kitLocationNames(kit){
+  const set = new Set();
+  kit.items.forEach(it=>{ const l=(it.location||'').trim(); if(l) set.add(l); });
+  return Array.from(set).sort((a,b)=>a.localeCompare(b,'fr'));
 }
 
 /* ---------- Grouping ---------- */
@@ -441,32 +472,38 @@ function renderKitDetail(){
   const main = document.getElementById('main');
   const kit = state.kits.find(k=>k.id===state.currentKitId);
   if(!kit){ goHome(); return; }
-  const groups = groupItems(kit.items);
   let html = '';
-  if(!groups.length){
+  if(!kit.items.length){
     html += `
       <div class="empty-state">
         <div class="glyph">📦</div>
         <p>Ce kit est vide.<br>Ajoutez un élément manuellement ou scannez un code-barres / QR code.</p>
       </div>`;
   } else {
-    groups.forEach(g=>{
-      html += `
-        <div class="item-group">
-          <div class="item-group-head">
-            <div>
-              <div class="item-name">${escapeHtml(g.name)}</div>
-              <div class="item-qty">Qté totale : ${g.totalQty} — plus proche : ${fmtDate(g.nearest.expiry)} (${statusLabel(g.nearest.expiry)})</div>
+    const locGroups = groupByLocation(kit.items);
+    locGroups.forEach(loc=>{
+      const groups = groupItems(loc.items);
+      html += loc.name
+        ? `<div class="location-header"><span class="name">📍 ${escapeHtml(loc.name)}</span><span class="count">${loc.items.length}</span></div>`
+        : `<div class="location-header unassigned"><span class="name">Sans emplacement</span><span class="count">${loc.items.length}</span></div>`;
+      groups.forEach(g=>{
+        html += `
+          <div class="item-group">
+            <div class="item-group-head">
+              <div>
+                <div class="item-name">${escapeHtml(g.name)}</div>
+                <div class="item-qty">Qté totale : ${g.totalQty} — plus proche : ${fmtDate(g.nearest.expiry)} (${statusLabel(g.nearest.expiry)})</div>
+              </div>
             </div>
-          </div>
-          <div class="blister-strip">
-            ${g.entries.map(e=>`
-              <div class="blister-cell status-${statusOf(e.expiry)} ${e.id===g.nearest.id?'leading':''}" onclick="openEditItem('${kit.id}','${e.id}')">
-                ${fmtDate(e.expiry)}${e.quantity>1?` ×${e.quantity}`:''}
-                ${e.lot?`<span class="lot">lot ${escapeHtml(e.lot)}</span>`:''}
-              </div>`).join('')}
-          </div>
-        </div>`;
+            <div class="blister-strip">
+              ${g.entries.map(e=>`
+                <div class="blister-cell status-${statusOf(e.expiry)} ${e.id===g.nearest.id?'leading':''}" onclick="openEditItem('${kit.id}','${e.id}')">
+                  ${fmtDate(e.expiry)}${e.quantity>1?` ×${e.quantity}`:''}
+                  ${e.lot?`<span class="lot">lot ${escapeHtml(e.lot)}</span>`:''}
+                </div>`).join('')}
+            </div>
+          </div>`;
+      });
     });
   }
   html += `
@@ -481,8 +518,10 @@ function renderExpiring(){
   const main = document.getElementById('main');
   let all = [];
   state.kits.forEach(kit=>{
-    groupItems(kit.items).forEach(g=>{
-      if(g.status !== 'far') all.push({kitName: kit.name, kitId: kit.id, group:g});
+    groupByLocation(kit.items).forEach(loc=>{
+      groupItems(loc.items).forEach(g=>{
+        if(g.status !== 'far') all.push({kitName: kit.name, kitId: kit.id, locationName: loc.name, group:g});
+      });
     });
   });
   all.sort((a,b)=> a.group.nearest.expiry.localeCompare(b.group.nearest.expiry));
@@ -507,7 +546,7 @@ function renderExpiring(){
           <div class="item-group-head">
             <div>
               <div class="item-name">${escapeHtml(g.name)}</div>
-              <div class="item-qty">Qté ${g.totalQty} — ${fmtDate(g.nearest.expiry)}</div>
+              <div class="item-qty">${row.locationName ? `📍 ${escapeHtml(row.locationName)} — `:''}Qté ${g.totalQty} — ${fmtDate(g.nearest.expiry)}</div>
             </div>
             <span class="pill ${g.status==='expired'?'red':'orange'}">${statusLabel(g.nearest.expiry)}</span>
           </div>
@@ -570,12 +609,21 @@ function confirmDeleteKit(id){
 /* ---------- Item CRUD ---------- */
 function openAddItem(prefill){
   prefill = prefill || {};
+  const kit = state.kits.find(k=>k.id===state.currentKitId);
+  const locs = kitLocationNames(kit);
   showModal(`
     <h2>Ajouter un élément</h2>
     <div class="sub">${prefill.barcode ? 'Code détecté — vérifiez et complétez les informations.' : 'Renseignez le médicament ou dispositif.'}</div>
     <div class="field">
       <label>Nom</label>
       <input id="itName" type="text" placeholder="Ex. Compresses stériles" value="${escapeHtml(prefill.name||'')}">
+    </div>
+    <div class="field">
+      <label>Emplacement (optionnel)</label>
+      <input id="itLocation" type="text" list="locList" placeholder="Ex. Pochette avant, Filet gauche..." value="${escapeHtml(prefill.location||'')}">
+      <datalist id="locList">
+        ${locs.map(l=>`<option value="${escapeHtml(l)}">`).join('')}
+      </datalist>
     </div>
     <div class="row2">
       <div class="field">
@@ -607,9 +655,10 @@ function submitAddItem(){
   const qty = parseInt(document.getElementById('itQty').value,10) || 1;
   const lot = document.getElementById('itLot').value.trim();
   const barcode = document.getElementById('itBarcode').value.trim();
+  const location = document.getElementById('itLocation').value.trim();
   if(!name || !expiry){ showToast('Nom et date requis'); return; }
   const kit = state.kits.find(k=>k.id===state.currentKitId);
-  kit.items.push({ id: uid(), name, expiry, quantity: qty, lot, barcode });
+  kit.items.push({ id: uid(), name, expiry, quantity: qty, lot, barcode, location });
   persist(); closeModal(); render();
   showToast('Élément ajouté');
 }
@@ -617,11 +666,19 @@ function openEditItem(kitId, itemId){
   const kit = state.kits.find(k=>k.id===kitId);
   const item = kit.items.find(i=>i.id===itemId);
   if(!item) return;
+  const locs = kitLocationNames(kit);
   showModal(`
     <h2>Modifier l'élément</h2>
     <div class="field">
       <label>Nom</label>
       <input id="itName" type="text" value="${escapeHtml(item.name)}">
+    </div>
+    <div class="field">
+      <label>Emplacement (optionnel)</label>
+      <input id="itLocation" type="text" list="locList" placeholder="Ex. Pochette avant, Filet gauche..." value="${escapeHtml(item.location||'')}">
+      <datalist id="locList">
+        ${locs.map(l=>`<option value="${escapeHtml(l)}">`).join('')}
+      </datalist>
     </div>
     <div class="row2">
       <div class="field">
@@ -650,6 +707,7 @@ function submitEditItem(kitId, itemId){
   item.expiry = document.getElementById('itExpiry').value || item.expiry;
   item.quantity = parseInt(document.getElementById('itQty').value,10) || 1;
   item.lot = document.getElementById('itLot').value.trim();
+  item.location = document.getElementById('itLocation').value.trim();
   persist(); closeModal(); render();
   showToast('Élément mis à jour');
 }
