@@ -32,10 +32,21 @@
   .wordmark{font-family:var(--mono);font-weight:700;letter-spacing:.12em;font-size:19px;text-transform:uppercase;}
   .subtitle{font-size:12px;color:#BFD2D3;margin-top:2px;letter-spacing:.02em;}
 
-  .navbar{position:sticky;top:0;z-index:19;background:var(--brand-dark);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;min-height:20px;}
-  .navbar .crumb{opacity:.65;}
-  .navbar .current{font-weight:700;font-family:var(--mono);}
-  .navbar button.link{background:none;border:none;color:#BFD2D3;text-decoration:underline;font-size:12.5px;cursor:pointer;padding:2px 4px;font-family:var(--sans);}
+  .navbar{position:sticky;top:0;z-index:19;background:var(--brand-dark);color:#fff;padding:16px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:15px;min-height:24px;}
+  .navbar .crumb{opacity:.6;font-size:14px;}
+  .navbar .current{font-weight:700;font-family:var(--mono);font-size:16px;}
+  .navbar button.link{
+    background:rgba(255,255,255,.15);
+    border:none;
+    color:#fff;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    padding:11px 18px;
+    border-radius:11px;
+    font-family:var(--sans);
+  }
+  .navbar button.link:active{ background:rgba(255,255,255,.28); }
   .navbar .spacer{flex:1;}
 
   .alertbar{margin:14px 16px 0;padding:12px 14px;border-radius:10px;font-size:13.5px;line-height:1.4;}
@@ -168,6 +179,31 @@ function doseLine(it){
   if(it.mg) parts.push(it.mg+' mg');
   if(it.ml) parts.push(it.ml+' ml');
   return parts.join(' · ');
+}
+function groupByPart(itemsList){
+  const groups = {};
+  itemsList.forEach(it=>{
+    const key = (it.location||'').trim();
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(it);
+  });
+  const keys = Object.keys(groups).sort((a,b)=>{
+    if(a==='' && b==='') return 0;
+    if(a==='') return 1;   // "Sans partie" toujours en dernier
+    if(b==='') return -1;
+    return a.localeCompare(b,'fr',{sensitivity:'base'});
+  });
+  keys.forEach(k=> groups[k].sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'})));
+  return keys.map(k=>({partName: k || 'Sans partie', items: groups[k]}));
+}
+function getKnownParts(){ return storGet('known-parts') || []; }
+function rememberPart(name){
+  if(!name) return;
+  const parts = getKnownParts();
+  if(!parts.includes(name)){
+    parts.push(name);
+    storSet('known-parts', parts);
+  }
 }
 
 function showConfirm(message){
@@ -575,8 +611,7 @@ function renderKitDetail(){
     mainZone.innerHTML = '<div class="empty">Ce kit est vide pour l’instant.<br>Ajoute un premier produit.</div>';
     return;
   }
-  const sorted = [...items].sort((a,b)=> a.name.localeCompare(b.name, 'fr', {sensitivity:'base'}));
-  const {red, amber} = countAlerts(sorted);
+  const {red, amber} = countAlerts(items);
   if(red+amber===0){
     alertZone.innerHTML = `<div class="alertbar ok">Tout est en ordre dans ce kit — aucun produit ne périme dans les 90 prochains jours.</div>`;
   } else {
@@ -586,21 +621,24 @@ function renderKitDetail(){
     alertZone.innerHTML = `<div class="alertbar has-red">⚠ ${parts.join(' · ')}</div>`;
   }
 
-  mainZone.innerHTML = sorted.map(it=>{
-    const s = statusFor(it.expiry);
-    const dl = doseLine(it);
-    return `<div class="item ${s.cls}" data-id="${it.id}">
-      <div class="info">
-        <div class="name">${escapeHtml(it.name)}</div>
-        ${dl ? `<div class="dose">${escapeHtml(dl)}</div>` : ''}
-        ${it.location ? `<div class="location">📍 ${escapeHtml(it.location)}</div>` : ''}
-        <div class="meta">${it.expiry ? formatDateFr(it.expiry) : 'date inconnue'}</div>
-      </div>
-      <div class="qty">x${it.qty||1}</div>
-      <div class="badge ${s.cls}">${s.label}</div>
-      <button class="del" data-id="${it.id}" title="Supprimer">✕</button>
-    </div>`;
-  }).join('');
+  const grouped = groupByPart(items);
+  mainZone.innerHTML = grouped.map(group => `
+    <div class="loc-title">${escapeHtml(group.partName)}</div>
+    ${group.items.map(it=>{
+      const s = statusFor(it.expiry);
+      const dl = doseLine(it);
+      return `<div class="item ${s.cls}" data-id="${it.id}">
+        <div class="info">
+          <div class="name">${escapeHtml(it.name)}</div>
+          ${dl ? `<div class="dose">${escapeHtml(dl)}</div>` : ''}
+          <div class="meta">${it.expiry ? formatDateFr(it.expiry) : 'date inconnue'}</div>
+        </div>
+        <div class="qty">x${it.qty||1}</div>
+        <div class="badge ${s.cls}">${s.label}</div>
+        <button class="del" data-id="${it.id}" title="Supprimer">✕</button>
+      </div>`;
+    }).join('')}
+  `).join('');
 
   mainZone.querySelectorAll('.item').forEach(el=>{
     el.addEventListener('click', (e)=>{
@@ -718,8 +756,11 @@ function showItemForm(prefill){
       </div>
     </div>
     <div class="field">
-      <label>Emplacement précis — optionnel</label>
-      <input type="text" id="f-location" value="${escapeHtml(prefill.location||'')}" placeholder="ex. tiroir du haut, boîte bleue">
+      <label>Partie du kit — optionnel</label>
+      <input type="text" id="f-location" list="partsList" value="${escapeHtml(prefill.location||'')}" placeholder="ex. Compartiment médicaments">
+      <datalist id="partsList">
+        ${getKnownParts().map(p=>`<option value="${escapeHtml(p)}">`).join('')}
+      </datalist>
     </div>
     <div class="row2">
       <div class="field">
@@ -754,6 +795,7 @@ function showItemForm(prefill){
     } else {
       items.push({id: 'it_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, mg, ml, location, expiry, qty});
     }
+    rememberPart(location);
     const ok = storSet('stock:'+currentKitId, items);
     if(!ok) saveFailToast();
     updateKitSummary();
