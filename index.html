@@ -82,6 +82,7 @@
   .item .info{flex:1;min-width:0;}
   .item .name{font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .item .dose{font-size:12px;color:var(--ink-muted);margin-top:2px;}
+  .item .location{font-size:12px;color:var(--brand);margin-top:2px;}
   .item .meta{font-family:var(--mono);font-size:11.5px;color:var(--ink-muted);margin-top:3px;}
   .item .qty{font-family:var(--mono);font-size:11.5px;color:var(--ink-muted);}
   .badge{font-family:var(--mono);font-weight:700;font-size:12px;padding:5px 8px;border-radius:6px;white-space:nowrap;}
@@ -162,6 +163,12 @@ function toast(msg){
 }
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 function formatDateFr(iso){ const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
+function doseLine(it){
+  const parts = [];
+  if(it.mg) parts.push(it.mg+' mg');
+  if(it.ml) parts.push(it.ml+' ml');
+  return parts.join(' · ');
+}
 
 function showConfirm(message){
   return new Promise(resolve=>{
@@ -286,7 +293,7 @@ function exportPDF(){
     kitItems.forEach(it=>{
       const s = statusFor(it.expiry);
       const statusLabel = s.cls==='st-red' ? (it.expiry && daysUntil(it.expiry)<0 ? 'Périmé' : 'À changer') : (s.cls==='st-amber' ? 'À surveiller' : 'OK');
-      rows.push([k.name, it.name, it.dose||'—', String(it.qty||1), it.expiry?formatDateFr(it.expiry):'—', statusLabel]);
+      rows.push([k.name, it.name, it.mg?it.mg+' mg':'—', it.ml?it.ml+' ml':'—', it.location||'—', String(it.qty||1), it.expiry?formatDateFr(it.expiry):'—', statusLabel]);
     });
   });
 
@@ -303,8 +310,8 @@ function exportPDF(){
   doc.text('Généré le '+new Date().toLocaleDateString('fr-FR'), 14, 21);
   doc.autoTable({
     startY: 26,
-    head: [['Kit','Produit','Dosage','Qté','Péremption','Statut']],
-    body: rows.length ? rows : [['—','Aucun produit enregistré','—','—','—','—']],
+    head: [['Kit','Produit','mg','ml','Emplacement','Qté','Péremption','Statut']],
+    body: rows.length ? rows : [['—','Aucun produit enregistré','—','—','—','—','—','—']],
     styles:{ fontSize:8, cellPadding:3 },
     headStyles:{ fillColor:[43,76,86] },
     alternateRowStyles:{ fillColor:[237,239,234] },
@@ -568,10 +575,12 @@ function renderKitDetail(){
 
   mainZone.innerHTML = sorted.map(it=>{
     const s = statusFor(it.expiry);
+    const dl = doseLine(it);
     return `<div class="item ${s.cls}" data-id="${it.id}">
       <div class="info">
         <div class="name">${escapeHtml(it.name)}</div>
-        ${it.dose ? `<div class="dose">${escapeHtml(it.dose)}</div>` : ''}
+        ${dl ? `<div class="dose">${escapeHtml(dl)}</div>` : ''}
+        ${it.location ? `<div class="location">📍 ${escapeHtml(it.location)}</div>` : ''}
         <div class="meta">${it.expiry ? formatDateFr(it.expiry) : 'date inconnue'}</div>
       </div>
       <div class="qty">x${it.qty||1}</div>
@@ -635,10 +644,12 @@ function renderUrgentList(){
     <div class="loc-title">${escapeHtml(g.kitName)}</div>
     ${g.items.map(it=>{
       const s = statusFor(it.expiry);
+      const dl = doseLine(it);
       return `<div class="item ${s.cls}" data-kitid="${g.kitId}" data-itemid="${it.id}" style="cursor:pointer;">
         <div class="info">
           <div class="name">${escapeHtml(it.name)}</div>
-          ${it.dose ? `<div class="dose">${escapeHtml(it.dose)}</div>` : ''}
+          ${dl ? `<div class="dose">${escapeHtml(dl)}</div>` : ''}
+          ${it.location ? `<div class="location">📍 ${escapeHtml(it.location)}</div>` : ''}
           <div class="meta">${it.expiry ? formatDateFr(it.expiry) : 'date inconnue'}</div>
         </div>
         <div class="qty">x${it.qty||1}</div>
@@ -681,9 +692,19 @@ function showItemForm(prefill){
       <label>Nom du produit *</label>
       <input type="text" id="f-name" value="${escapeHtml(prefill.name||'')}" placeholder="ex. Doliprane">
     </div>
+    <div class="row2">
+      <div class="field">
+        <label>Dosage (mg) — optionnel</label>
+        <input type="number" step="any" id="f-mg" value="${escapeHtml(prefill.mg||'')}" placeholder="ex. 500">
+      </div>
+      <div class="field">
+        <label>Volume (ml) — optionnel</label>
+        <input type="number" step="any" id="f-ml" value="${escapeHtml(prefill.ml||'')}" placeholder="ex. 20">
+      </div>
+    </div>
     <div class="field">
-      <label>Dosage (mg, ml…) — optionnel</label>
-      <input type="text" id="f-dose" value="${escapeHtml(prefill.dose||'')}" placeholder="ex. 500 mg, 20 ml">
+      <label>Emplacement précis — optionnel</label>
+      <input type="text" id="f-location" value="${escapeHtml(prefill.location||'')}" placeholder="ex. tiroir du haut, boîte bleue">
     </div>
     <div class="row2">
       <div class="field">
@@ -704,7 +725,9 @@ function showItemForm(prefill){
   document.getElementById('cancelFormBtn').addEventListener('click', closeModal);
   document.getElementById('saveItemBtn').addEventListener('click', ()=>{
     const name = document.getElementById('f-name').value.trim();
-    const dose = document.getElementById('f-dose').value.trim();
+    const mg = document.getElementById('f-mg').value.trim();
+    const ml = document.getElementById('f-ml').value.trim();
+    const location = document.getElementById('f-location').value.trim();
     const expiry = document.getElementById('f-expiry').value;
     const qty = parseInt(document.getElementById('f-qty').value,10) || 1;
     if(!name){ toast('Le nom du produit est requis'); return; }
@@ -712,9 +735,9 @@ function showItemForm(prefill){
 
     if(prefill.id){
       const it = items.find(i=>i.id===prefill.id);
-      Object.assign(it, {name, dose, expiry, qty});
+      Object.assign(it, {name, mg, ml, location, expiry, qty});
     } else {
-      items.push({id: 'it_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, dose, expiry, qty});
+      items.push({id: 'it_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, mg, ml, location, expiry, qty});
     }
     const ok = storSet('stock:'+currentKitId, items);
     if(!ok) saveFailToast();
