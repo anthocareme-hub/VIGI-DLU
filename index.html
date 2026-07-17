@@ -173,7 +173,7 @@ function toast(msg){
   setTimeout(()=>t.remove(), 2400);
 }
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
-function formatDateFr(iso){ const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
+function formatDateFr(iso){ const [y,m] = iso.split('-'); return `${m}/${y}`; }
 function doseLine(it){
   const parts = [];
   if(it.mg) parts.push(it.mg+' mg');
@@ -222,10 +222,14 @@ function showConfirm(message){
 }
 
 /* ---------- Statut de péremption ---------- */
+/* ---------- Statut de péremption ----------
+   Les dates sont saisies en mois/année : un produit "08/2026" reste valide
+   jusqu'au dernier jour d'août 2026, pas juste jusqu'au 1er du mois. */
 function daysUntil(dateStr){
   const today = new Date(); today.setHours(0,0,0,0);
-  const d = new Date(dateStr+'T00:00:00');
-  return Math.round((d - today) / 86400000);
+  const [y, m] = dateStr.split('-').map(n=>parseInt(n,10));
+  const lastDayOfMonth = new Date(y, m, 0); // jour 0 du mois suivant = dernier jour du mois indiqué
+  return Math.round((lastDayOfMonth - today) / 86400000);
 }
 function statusFor(dateStr){
   if(!dateStr) return {cls:'st-amber', label:'DATE ?'};
@@ -764,8 +768,8 @@ function showItemForm(prefill){
     </div>
     <div class="row2">
       <div class="field">
-        <label>Date de péremption *</label>
-        <input type="date" id="f-expiry" value="${prefill.expiry||''}">
+        <label>Mois de péremption *</label>
+        <input type="month" id="f-expiry" value="${(prefill.expiry||'').slice(0,7)}">
       </div>
       <div class="field">
         <label>Quantité</label>
@@ -787,7 +791,7 @@ function showItemForm(prefill){
     const expiry = document.getElementById('f-expiry').value;
     const qty = parseInt(document.getElementById('f-qty').value,10) || 1;
     if(!name){ toast('Le nom du produit est requis'); return; }
-    if(!expiry){ toast('La date de péremption est requise'); return; }
+    if(!expiry){ toast('Le mois de péremption est requis'); return; }
 
     if(prefill.id){
       const it = items.find(i=>i.id===prefill.id);
