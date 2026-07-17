@@ -286,17 +286,15 @@ function handleHomeImageChange(e){
   reader.readAsDataURL(file);
 }
 
-function exportPDF(){
-  const rows = [];
-  kitsIndex.forEach(k=>{
-    const kitItems = (storGet('stock:'+k.id) || []).slice().sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
-    kitItems.forEach(it=>{
-      const s = statusFor(it.expiry);
-      const statusLabel = s.cls==='st-red' ? (it.expiry && daysUntil(it.expiry)<0 ? 'Périmé' : 'À changer') : (s.cls==='st-amber' ? 'À surveiller' : 'OK');
-      rows.push([k.name, it.name, it.mg?it.mg+' mg':'—', it.ml?it.ml+' ml':'—', it.location||'—', String(it.qty||1), it.expiry?formatDateFr(it.expiry):'—', statusLabel]);
-    });
+function rowsFromItems(kitName, kitItems){
+  return kitItems.map(it=>{
+    const s = statusFor(it.expiry);
+    const statusLabel = s.cls==='st-red' ? (it.expiry && daysUntil(it.expiry)<0 ? 'Périmé' : 'À changer') : (s.cls==='st-amber' ? 'À surveiller' : 'OK');
+    return [kitName, it.name, it.mg?it.mg+' mg':'—', it.ml?it.ml+' ml':'—', it.location||'—', String(it.qty||1), it.expiry?formatDateFr(it.expiry):'—', statusLabel];
   });
+}
 
+function generatePDFTable(title, rows){
   if(typeof window.jspdf === 'undefined'){
     toast("Le générateur PDF n'a pas pu se charger (vérifie ta connexion) — réessaie.");
     return;
@@ -304,14 +302,14 @@ function exportPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   doc.setFontSize(14);
-  doc.text('VIGIE DLU — Détail des kits', 14, 15);
+  doc.text(title, 14, 15);
   doc.setFontSize(9);
   doc.setTextColor(120);
   doc.text('Généré le '+new Date().toLocaleDateString('fr-FR'), 14, 21);
   doc.autoTable({
     startY: 26,
     head: [['Kit','Produit','mg','ml','Emplacement','Qté','Péremption','Statut']],
-    body: rows.length ? rows : [['—','Aucun produit enregistré','—','—','—','—','—','—']],
+    body: rows.length ? rows : [['—','Aucun produit','—','—','—','—','—','—']],
     styles:{ fontSize:8, cellPadding:3 },
     headStyles:{ fillColor:[43,76,86] },
     alternateRowStyles:{ fillColor:[237,239,234] },
@@ -325,15 +323,30 @@ function exportPDF(){
       if(navigator.canShare){
         const file = new File([blob], filename, {type:'application/pdf'});
         if(navigator.canShare({files:[file]})){
-          await navigator.share({files:[file], title:'VIGIE DLU'});
+          await navigator.share({files:[file], title});
           return;
         }
       }
     }catch(e){ /* on retombe sur le repli ci-dessous */ }
-    // Repli : ouvrir le PDF dans un nouvel onglet — tu pourras l'enregistrer via le bouton Partager de la visionneuse.
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
   })();
+}
+
+function exportPDF(){
+  let rows = [];
+  kitsIndex.forEach(k=>{
+    const kitItems = (storGet('stock:'+k.id) || []).slice().sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+    rows = rows.concat(rowsFromItems(k.name, kitItems));
+  });
+  generatePDFTable('VIGIE DLU — Détail des kits', rows);
+}
+
+function exportUrgentPDF(){
+  const groups = computeUrgentGroups();
+  let rows = [];
+  groups.forEach(g=> rows = rows.concat(rowsFromItems(g.kitName, g.items)));
+  generatePDFTable('VIGIE DLU — Produits à changer', rows);
 }
 
 /* ---------- Liste des kits ---------- */
@@ -640,7 +653,8 @@ function renderUrgentList(){
     mainZone.innerHTML = '<div class="empty">Rien à changer dans les 30 prochains jours 🎉</div>';
     return;
   }
-  mainZone.innerHTML = groups.map(g => `
+  mainZone.innerHTML = `<button class="primaryfab" id="exportUrgentPdfBtn" style="width:100%;margin-bottom:16px;">📄 Générer le PDF de cette liste</button>` +
+  groups.map(g => `
     <div class="loc-title">${escapeHtml(g.kitName)}</div>
     ${g.items.map(it=>{
       const s = statusFor(it.expiry);
@@ -658,6 +672,7 @@ function renderUrgentList(){
     }).join('')}
   `).join('');
 
+  document.getElementById('exportUrgentPdfBtn').addEventListener('click', exportUrgentPDF);
   mainZone.querySelectorAll('.item').forEach(el=>{
     el.addEventListener('click', ()=> openItemFromUrgent(el.dataset.kitid, el.dataset.itemid));
   });
