@@ -296,8 +296,10 @@ function renderNavbar(){
       <span class="crumb">›</span>
       <span class="current">${escapeHtml(currentKitName)}</span>
       <span class="spacer"></span>
+      <button class="link" id="kitPdfBtn">📄 PDF</button>
       <button class="link" id="renameKitBtn">renommer</button>`;
     document.getElementById('backToKitsBtn').addEventListener('click', ()=>{ kitsIndex = storGet('kits')||[]; view='kits'; renderAll(); });
+    document.getElementById('kitPdfBtn').addEventListener('click', exportKitPDF);
     document.getElementById('renameKitBtn').addEventListener('click', showRenameKitModal);
   }
 }
@@ -318,6 +320,7 @@ function renderProfile(){
   mainZone.querySelectorAll('.profiletile').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       storSet('active-person', btn.dataset.person);
+      requestBadgePermissionOnce();
       view = 'home';
       renderAll();
     });
@@ -482,6 +485,12 @@ function exportUrgentPDF(){
   let rows = [];
   groups.forEach(g=> rows = rows.concat(rowsFromItems(g.kitName, g.items)));
   generatePDFTable('VIGIE DLU — Produits à changer', rows);
+}
+
+function exportKitPDF(){
+  const sortedItems = [...items].sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+  const rows = rowsFromItems(currentKitName, sortedItems);
+  generatePDFTable('VIGIE DLU — '+currentKitName, rows);
 }
 
 /* ---------- Liste des kits ---------- */
@@ -738,7 +747,10 @@ function renderKitDetail(){
         <button class="del" data-id="${it.id}" title="Supprimer">✕</button>
       </div>`;
     }).join('')}
-  `).join('');
+  `).join('') + `<div class="footlink"><button id="scrollTopBtn">⬆ Haut de page</button></div>`;
+
+  const scrollTopBtn = document.getElementById('scrollTopBtn');
+  if(scrollTopBtn) scrollTopBtn.addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'}));
 
   mainZone.querySelectorAll('.item').forEach(el=>{
     el.addEventListener('click', (e)=>{
@@ -836,6 +848,25 @@ function renderAll(){
   else if(view === 'kits') renderKitsList();
   else if(view === 'urgent') renderUrgentList();
   else renderKitDetail();
+  updateAppBadge();
+}
+
+/* ---------- Badge numérique sur l'icône (compte des produits urgents) ---------- */
+function updateAppBadge(){
+  try{
+    const totalUrgent = kitsIndex.reduce((s,k)=>s+(k.redCount||0),0);
+    if('setAppBadge' in navigator){
+      if(totalUrgent > 0) navigator.setAppBadge(totalUrgent).catch(()=>{});
+      else if('clearAppBadge' in navigator) navigator.clearAppBadge().catch(()=>{});
+    }
+  }catch(e){ /* Badging API indisponible sur ce navigateur : on ignore */ }
+}
+function requestBadgePermissionOnce(){
+  try{
+    if('Notification' in window && Notification.permission === 'default'){
+      Notification.requestPermission().catch(()=>{});
+    }
+  }catch(e){}
 }
 
 /* ---------- Formulaire produit (saisie manuelle uniquement) ---------- */
@@ -890,17 +921,21 @@ function showItemForm(prefill){
         <input type="date" id="f-controlDate" value="${todayISO()}">
       </div>
     </div>
+    ${prefill.id ? `
+    <div class="modalbtns">
+      <button class="btn-secondary" id="dynamicBtn" style="flex:1">Quitter</button>
+    </div>` : `
     <div class="modalbtns">
       <button class="btn-secondary" id="cancelFormBtn">Annuler</button>
       <button class="btn-primary" id="saveItemBtn">Enregistrer</button>
-    </div>
+    </div>`}
   </div></div>`;
 
-  document.getElementById('cancelFormBtn').addEventListener('click', closeModal);
-  document.querySelectorAll('.chip').forEach(chip=>{
-    chip.addEventListener('click', ()=>{ document.getElementById('f-location').value = chip.dataset.part; });
-  });
-  document.getElementById('saveItemBtn').addEventListener('click', ()=>{
+  const trackedIds = ['f-name','f-mg','f-ml','f-location','f-expiry','f-qty'];
+  const initialSnapshot = trackedIds.map(id=>document.getElementById(id).value).join('|');
+  function hasChanged(){ return trackedIds.map(id=>document.getElementById(id).value).join('|') !== initialSnapshot; }
+
+  function doSave(){
     const name = document.getElementById('f-name').value.trim();
     const mg = document.getElementById('f-mg').value.trim();
     const ml = document.getElementById('f-ml').value.trim();
@@ -930,7 +965,41 @@ function showItemForm(prefill){
     closeModal();
     renderAll();
     toast('Produit enregistré');
+  }
+
+  document.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      document.getElementById('f-location').value = chip.dataset.part;
+      refreshDynamicBtn();
+    });
   });
+
+  function refreshDynamicBtn(){
+    const btn = document.getElementById('dynamicBtn');
+    if(!btn) return;
+    if(hasChanged()){
+      btn.textContent = 'Enregistrer';
+      btn.classList.remove('btn-secondary');
+      btn.classList.add('btn-primary');
+    } else {
+      btn.textContent = 'Quitter';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+    }
+  }
+
+  if(prefill.id){
+    trackedIds.forEach(id=>{
+      document.getElementById(id).addEventListener('input', refreshDynamicBtn);
+      document.getElementById(id).addEventListener('change', refreshDynamicBtn);
+    });
+    document.getElementById('dynamicBtn').addEventListener('click', ()=>{
+      if(hasChanged()) doSave(); else closeModal();
+    });
+  } else {
+    document.getElementById('cancelFormBtn').addEventListener('click', closeModal);
+    document.getElementById('saveItemBtn').addEventListener('click', doSave);
+  }
 }
 
 /* ---------- Démarrage ---------- */
