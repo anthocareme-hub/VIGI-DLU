@@ -428,7 +428,7 @@ function rowsFromItems(kitName, kitItems){
   return kitItems.map(it=>{
     const s = statusFor(it.expiry);
     const statusLabel = s.cls==='st-red' ? (it.expiry && daysUntil(it.expiry)<0 ? 'Périmé' : 'À changer') : (s.cls==='st-amber' ? 'À surveiller' : 'OK');
-    return [kitName, it.name, it.mg?it.mg+' mg':'—', it.ml?it.ml+' ml':'—', it.location||'—', String(it.qty||1), it.expiry?formatDateFr(it.expiry):'—', statusLabel];
+    return [kitName, it.name, it.mg?it.mg+' mg':'—', it.ml?it.ml+' ml':'—', it.location||'—', String(it.qty||1), it.expiry?formatDateFr(it.expiry):'—', statusLabel, it.controlledBy||'—', it.controlDate?formatDateFrFull(it.controlDate):'—'];
   });
 }
 
@@ -438,7 +438,7 @@ function generatePDFTable(title, rows){
     return;
   }
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: 'landscape' });
   doc.setFontSize(14);
   doc.text(title, 14, 15);
   doc.setFontSize(9);
@@ -446,8 +446,8 @@ function generatePDFTable(title, rows){
   doc.text('Généré le '+new Date().toLocaleDateString('fr-FR'), 14, 21);
   doc.autoTable({
     startY: 26,
-    head: [['Kit','Produit','mg','ml','Emplacement','Qté','Péremption','Statut']],
-    body: rows.length ? rows : [['—','Aucun produit','—','—','—','—','—','—']],
+    head: [['Kit','Produit','mg','ml','Emplacement','Qté','Péremption','Statut','Contrôlé par','Le']],
+    body: rows.length ? rows : [['—','Aucun produit','—','—','—','—','—','—','—','—']],
     styles:{ fontSize:8, cellPadding:3 },
     headStyles:{ fillColor:[43,76,86] },
     alternateRowStyles:{ fillColor:[237,239,234] },
@@ -511,7 +511,8 @@ function renderKitsList(){
     const parts=[];
     if(totalRed) parts.push(totalRed+' produit(s) urgent(s)');
     if(totalAmber) parts.push(totalAmber+' à surveiller');
-    alertZone.innerHTML = `<div class="alertbar has-red">⚠ ${parts.join(' · ')} au total</div>`;
+    alertZone.innerHTML = `<div class="alertbar has-red" id="alertGoUrgent" style="cursor:pointer;">⚠ ${parts.join(' · ')} au total — voir la liste ›</div>`;
+    document.getElementById('alertGoUrgent').addEventListener('click', ()=>{ view='urgent'; renderAll(); });
   }
 
   mainZone.innerHTML = kitsIndex.map((k,idx)=>`
@@ -726,7 +727,8 @@ function renderKitDetail(){
     const parts=[];
     if(red) parts.push(red+' à traiter en urgence (périmé ou < 30 j)');
     if(amber) parts.push(amber+' à surveiller (< 90 j)');
-    alertZone.innerHTML = `<div class="alertbar has-red">⚠ ${parts.join(' · ')}</div>`;
+    alertZone.innerHTML = `<div class="alertbar has-red" id="alertGoUrgent" style="cursor:pointer;">⚠ ${parts.join(' · ')} — voir la liste ›</div>`;
+    document.getElementById('alertGoUrgent').addEventListener('click', ()=>{ view='urgent'; renderAll(); });
   }
 
   const grouped = groupByPart(items);
