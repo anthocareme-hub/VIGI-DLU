@@ -64,6 +64,10 @@
   .homeimg img{width:100%;height:100%;object-fit:cover;display:block;}
   .homeimg-placeholder{color:var(--ink-muted);font-size:13px;text-align:center;padding:20px;line-height:1.5;}
   .link-change{display:block;text-align:center;background:none;border:none;color:var(--brand);font-size:12.5px;text-decoration:underline;margin:12px auto 24px;cursor:pointer;}
+  .profilewrap{padding-top:24px;}
+  .profiletitle{text-align:center;font-family:var(--mono);font-weight:700;font-size:18px;letter-spacing:.05em;margin-bottom:26px;color:var(--ink);}
+  .profiletile{display:block;width:100%;background:var(--brand);color:#fff;border:none;border-radius:16px;padding:28px;font-size:19px;font-weight:700;margin-bottom:14px;cursor:pointer;font-family:var(--sans);box-shadow:0 1px 4px rgba(0,0,0,.1);}
+  .profiletile:active{background:var(--brand-dark);}
   .homebtns{display:flex;flex-direction:column;gap:12px;}
   .homebtns button{padding:18px;border-radius:14px;font-size:15.5px;font-weight:700;border:none;cursor:pointer;font-family:var(--sans);}
   .homebtns .hp{background:var(--brand);color:#fff;}
@@ -94,6 +98,7 @@
   .item .name{font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .item .dose{font-size:12px;color:var(--ink-muted);margin-top:2px;}
   .item .location{font-size:12px;color:var(--brand);margin-top:2px;}
+  .item .checked{font-size:11px;color:var(--green);margin-top:2px;}
   .chiprow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
   .chip{background:var(--bg);border:1.5px solid var(--line);color:var(--brand);font-size:13px;font-weight:600;padding:8px 14px;border-radius:20px;cursor:pointer;font-family:var(--sans);}
   .chip:active{background:var(--brand);color:#fff;border-color:var(--brand);}
@@ -177,6 +182,13 @@ function toast(msg){
 }
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 function formatDateFr(iso){ const [y,m] = iso.split('-'); return `${m}/${y}`; }
+function formatDateFrFull(iso){ const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function getPeople(){ return storGet('people') || []; }
+function getActivePerson(){ return storGet('active-person') || ''; }
 function doseLine(it){
   const parts = [];
   if(it.mg) parts.push(it.mg+' mg');
@@ -259,7 +271,7 @@ function countAlerts(list){
 
 /* ---------- Navigation ---------- */
 function renderNavbar(){
-  if(view === 'home'){ navbar.innerHTML=''; return; }
+  if(view === 'profile' || view === 'home'){ navbar.innerHTML=''; return; }
   if(view === 'kits'){
     const totalUrgent = kitsIndex.reduce((s,k)=>s+(k.redCount||0),0);
     navbar.innerHTML = `
@@ -290,6 +302,76 @@ function renderNavbar(){
   }
 }
 
+/* ---------- Profil (première page) ---------- */
+function renderProfile(){
+  fabZone.innerHTML = '';
+  alertZone.innerHTML = '';
+  const people = getPeople();
+  mainZone.innerHTML = `
+    <div class="profilewrap">
+      <div class="profiletitle">Qui es-tu ?</div>
+      ${people.length
+        ? people.map(p=>`<button class="profiletile" data-person="${escapeHtml(p)}">${escapeHtml(p)}</button>`).join('')
+        : '<div class="empty">Personne enregistrée pour l\'instant.<br>Ajoute-toi avec le lien ci-dessous.</div>'}
+      <button class="link-change" id="managePeopleBtn">+ Ajouter un infirmier</button>
+    </div>`;
+  mainZone.querySelectorAll('.profiletile').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      storSet('active-person', btn.dataset.person);
+      view = 'home';
+      renderAll();
+    });
+  });
+  document.getElementById('managePeopleBtn').addEventListener('click', showManagePeopleModal);
+}
+
+function showManagePeopleModal(){
+  const people = getPeople();
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Équipe</h2>
+    <div class="hint">Ajoute ou retire les prénoms des personnes qui gèrent ce kit.</div>
+    <div id="peopleListZone">
+      ${people.length ? people.map((p,i)=>`<div class="tplrow">
+          <span>${escapeHtml(p)}</span>
+          <button class="editbtn" data-removeidx="${i}" title="Retirer">✕</button>
+        </div>`).join('') : '<div class="hint">Aucun prénom enregistré.</div>'}
+    </div>
+    <div class="field">
+      <label>Prénom à ajouter</label>
+      <input type="text" id="newPersonName" placeholder="ex. Marie">
+    </div>
+    <div class="modalbtns">
+      <button class="btn-primary" id="addPersonBtn" style="flex:1">+ Ajouter</button>
+    </div>
+    <div class="modalbtns">
+      <button class="btn-secondary" id="closePeopleBtn" style="flex:1">Fermer</button>
+    </div>
+  </div></div>`;
+
+  modalRoot.querySelectorAll('[data-removeidx]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const sure = await showConfirm('Retirer cette personne de l\'équipe ?');
+      if(!sure) return;
+      const list = getPeople();
+      list.splice(parseInt(btn.dataset.removeidx,10),1);
+      const ok = storSet('people', list);
+      if(!ok) saveFailToast();
+      showManagePeopleModal();
+    });
+  });
+  document.getElementById('addPersonBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('newPersonName').value.trim();
+    if(!name){ toast('Indique un prénom'); return; }
+    const list = getPeople();
+    if(list.includes(name)){ toast('Déjà dans la liste'); return; }
+    list.push(name);
+    const ok = storSet('people', list);
+    if(!ok) saveFailToast(); else toast('"'+name+'" ajouté(e)');
+    showManagePeopleModal();
+  });
+  document.getElementById('closePeopleBtn').addEventListener('click', ()=>{ closeModal(); renderAll(); });
+}
+
 /* ---------- Accueil ---------- */
 function renderHome(){
   fabZone.innerHTML = '';
@@ -306,7 +388,9 @@ function renderHome(){
         <button class="hp" id="goKitsBtn">📦 Mes kits</button>
         <button class="hs" id="exportMailBtn">📄 Exporter en PDF</button>
       </div>
+      <button class="link-change" id="switchPersonBtn">changer de personne (${escapeHtml(getActivePerson())})</button>
     </div>`;
+  document.getElementById('switchPersonBtn').addEventListener('click', ()=>{ view='profile'; renderAll(); });
   document.getElementById('homeImgWrap').addEventListener('click', ()=>document.getElementById('homeImgInput').click());
   document.getElementById('changeImgBtn').addEventListener('click', ()=>document.getElementById('homeImgInput').click());
   document.getElementById('homeImgInput').addEventListener('change', handleHomeImageChange);
@@ -647,6 +731,7 @@ function renderKitDetail(){
           <div class="name">${escapeHtml(it.name)}</div>
           ${dl ? `<div class="dose">${escapeHtml(dl)}</div>` : ''}
           <div class="meta">${it.expiry ? formatDateFr(it.expiry) : 'date inconnue'}</div>
+          ${it.controlledBy ? `<div class="checked">✓ ${escapeHtml(it.controlledBy)}${it.controlDate ? ' le '+formatDateFrFull(it.controlDate) : ''}</div>` : ''}
         </div>
         <div class="qty">x${it.qty||1}</div>
         <div class="badge ${s.cls}">${s.label}</div>
@@ -718,6 +803,7 @@ function renderUrgentList(){
           ${dl ? `<div class="dose">${escapeHtml(dl)}</div>` : ''}
           ${it.location ? `<div class="location">📍 ${escapeHtml(it.location)}</div>` : ''}
           <div class="meta">${it.expiry ? formatDateFr(it.expiry) : 'date inconnue'}</div>
+          ${it.controlledBy ? `<div class="checked">✓ ${escapeHtml(it.controlledBy)}${it.controlDate ? ' le '+formatDateFrFull(it.controlDate) : ''}</div>` : ''}
         </div>
         <div class="qty">x${it.qty||1}</div>
         <div class="badge ${s.cls}">${s.label}</div>
@@ -745,7 +831,8 @@ function openItemFromUrgent(kitId, itemId){
 /* ---------- Rendu global ---------- */
 function renderAll(){
   renderNavbar();
-  if(view === 'home') renderHome();
+  if(view === 'profile') renderProfile();
+  else if(view === 'home') renderHome();
   else if(view === 'kits') renderKitsList();
   else if(view === 'urgent') renderUrgentList();
   else renderKitDetail();
@@ -790,6 +877,19 @@ function showItemForm(prefill){
         <input type="number" id="f-qty" min="1" value="${prefill.qty||1}">
       </div>
     </div>
+    <div class="row2">
+      <div class="field">
+        <label>Contrôlé par</label>
+        <input type="text" id="f-controlledBy" list="peopleListForm" value="${escapeHtml(getActivePerson())}">
+        <datalist id="peopleListForm">
+          ${getPeople().map(p=>`<option value="${escapeHtml(p)}">`).join('')}
+        </datalist>
+      </div>
+      <div class="field">
+        <label>Le</label>
+        <input type="date" id="f-controlDate" value="${todayISO()}">
+      </div>
+    </div>
     <div class="modalbtns">
       <button class="btn-secondary" id="cancelFormBtn">Annuler</button>
       <button class="btn-primary" id="saveItemBtn">Enregistrer</button>
@@ -807,17 +907,23 @@ function showItemForm(prefill){
     const location = document.getElementById('f-location').value.trim();
     const expiry = document.getElementById('f-expiry').value;
     const qty = parseInt(document.getElementById('f-qty').value,10) || 1;
+    const controlledBy = document.getElementById('f-controlledBy').value.trim();
+    const controlDate = document.getElementById('f-controlDate').value;
     if(!name){ toast('Le nom du produit est requis'); return; }
     if(!expiry){ toast('Le mois de péremption est requis'); return; }
 
     if(prefill.id){
       const it = items.find(i=>i.id===prefill.id);
-      Object.assign(it, {name, mg, ml, location, expiry, qty});
+      Object.assign(it, {name, mg, ml, location, expiry, qty, controlledBy, controlDate});
     } else {
-      items.push({id: 'it_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, mg, ml, location, expiry, qty});
+      items.push({id: 'it_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, mg, ml, location, expiry, qty, controlledBy, controlDate});
     }
     rememberPart(location);
     rememberRecentPartForKit(currentKitId, location);
+    if(controlledBy){
+      const peopleList = getPeople();
+      if(!peopleList.includes(controlledBy)){ peopleList.push(controlledBy); storSet('people', peopleList); }
+    }
     const ok = storSet('stock:'+currentKitId, items);
     if(!ok) saveFailToast();
     updateKitSummary();
@@ -830,7 +936,7 @@ function showItemForm(prefill){
 /* ---------- Démarrage ---------- */
 (function init(){
   kitsIndex = storGet('kits') || [];
-  view = 'home';
+  view = 'profile';
   renderAll();
 })();
 </script>
