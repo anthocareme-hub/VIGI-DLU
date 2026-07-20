@@ -258,9 +258,7 @@ function statusFor(dateStr){
   if(!dateStr) return {cls:'st-amber', label:'DATE ?'};
   const days = daysUntil(dateStr);
   if(days < 0) return {cls:'st-red', label:'PÉRIMÉ', days};
-  if(days === 0) return {cls:'st-red', label:'J-0', days};
-  if(days <= 30) return {cls:'st-red', label:'J-'+days, days};
-  if(days <= 90) return {cls:'st-amber', label:'J-'+days, days};
+  if(days <= 30) return {cls:'st-amber', label:'J-'+days, days};
   return {cls:'st-green', label:'J-'+days, days};
 }
 function countAlerts(list){
@@ -273,7 +271,7 @@ function countAlerts(list){
 function renderNavbar(){
   if(view === 'profile' || view === 'home'){ navbar.innerHTML=''; return; }
   if(view === 'kits'){
-    const totalUrgent = kitsIndex.reduce((s,k)=>s+(k.redCount||0),0);
+    const totalUrgent = kitsIndex.reduce((s,k)=>s+(k.redCount||0)+(k.amberCount||0),0);
     navbar.innerHTML = `
       <span class="current">Mes kits</span>
       <span class="spacer"></span>
@@ -427,7 +425,7 @@ function handleHomeImageChange(e){
 function rowsFromItems(kitName, kitItems){
   return kitItems.map(it=>{
     const s = statusFor(it.expiry);
-    const statusLabel = s.cls==='st-red' ? (it.expiry && daysUntil(it.expiry)<0 ? 'Périmé' : 'À changer') : (s.cls==='st-amber' ? 'À surveiller' : 'OK');
+    const statusLabel = s.cls==='st-red' ? 'Périmé' : (s.cls==='st-amber' ? 'À changer' : 'OK');
     return [kitName, it.name, it.mg?it.mg+' mg':'—', it.ml?it.ml+' ml':'—', it.location||'—', String(it.qty||1), it.expiry?formatDateFr(it.expiry):'—', statusLabel, it.controlledBy||'—', it.controlDate?formatDateFrFull(it.controlDate):'—'];
   });
 }
@@ -506,11 +504,11 @@ function renderKitsList(){
   let totalRed=0, totalAmber=0;
   kitsIndex.forEach(k=>{ totalRed += (k.redCount||0); totalAmber += (k.amberCount||0); });
   if(totalRed+totalAmber === 0){
-    alertZone.innerHTML = `<div class="alertbar ok">Tout est en ordre — rien à signaler dans les 90 prochains jours.</div>`;
+    alertZone.innerHTML = `<div class="alertbar ok">Tout est en ordre — rien n'est périmé ni ne périme dans les 30 prochains jours.</div>`;
   } else {
     const parts=[];
-    if(totalRed) parts.push(totalRed+' produit(s) urgent(s)');
-    if(totalAmber) parts.push(totalAmber+' à surveiller');
+    if(totalRed) parts.push(totalRed+' périmé(s)');
+    if(totalAmber) parts.push(totalAmber+' à changer sous 30 jours');
     alertZone.innerHTML = `<div class="alertbar has-red" id="alertGoUrgent" style="cursor:pointer;">⚠ ${parts.join(' · ')} au total — voir la liste ›</div>`;
     document.getElementById('alertGoUrgent').addEventListener('click', ()=>{ view='urgent'; renderAll(); });
   }
@@ -722,11 +720,11 @@ function renderKitDetail(){
   }
   const {red, amber} = countAlerts(items);
   if(red+amber===0){
-    alertZone.innerHTML = `<div class="alertbar ok">Tout est en ordre dans ce kit — aucun produit ne périme dans les 90 prochains jours.</div>`;
+    alertZone.innerHTML = `<div class="alertbar ok">Tout est en ordre dans ce kit — rien n'est périmé ni ne périme dans les 30 prochains jours.</div>`;
   } else {
     const parts=[];
-    if(red) parts.push(red+' à traiter en urgence (périmé ou < 30 j)');
-    if(amber) parts.push(amber+' à surveiller (< 90 j)');
+    if(red) parts.push(red+' périmé(s)');
+    if(amber) parts.push(amber+' à changer sous 30 jours');
     alertZone.innerHTML = `<div class="alertbar has-red" id="alertGoUrgent" style="cursor:pointer;">⚠ ${parts.join(' · ')} — voir la liste ›</div>`;
     document.getElementById('alertGoUrgent').addEventListener('click', ()=>{ view='urgent'; renderAll(); });
   }
@@ -787,7 +785,7 @@ function computeUrgentGroups(){
   const groups = [];
   kitsIndex.forEach(k=>{
     const kitItems = storGet('stock:'+k.id) || [];
-    const urgent = kitItems.filter(it=>statusFor(it.expiry).cls === 'st-red');
+    const urgent = kitItems.filter(it=>{ const c = statusFor(it.expiry).cls; return c==='st-red' || c==='st-amber'; });
     if(urgent.length){
       urgent.sort((a,b)=> daysUntil(a.expiry) - daysUntil(b.expiry));
       groups.push({kitId:k.id, kitName:k.name, items:urgent});
@@ -856,7 +854,7 @@ function renderAll(){
 /* ---------- Badge numérique sur l'icône (compte des produits urgents) ---------- */
 function updateAppBadge(){
   try{
-    const totalUrgent = kitsIndex.reduce((s,k)=>s+(k.redCount||0),0);
+    const totalUrgent = kitsIndex.reduce((s,k)=>s+(k.redCount||0)+(k.amberCount||0),0);
     if('setAppBadge' in navigator){
       if(totalUrgent > 0) navigator.setAppBadge(totalUrgent).catch(()=>{});
       else if('clearAppBadge' in navigator) navigator.clearAppBadge().catch(()=>{});
