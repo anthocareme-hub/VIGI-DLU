@@ -74,7 +74,7 @@
   .homebtns .hs{background:var(--surface);color:var(--brand);border:1.5px solid var(--brand);}
 
   /* kits */
-  .kitcard{background:var(--surface);border-radius:10px;margin-bottom:10px;padding:12px 14px;box-shadow:0 1px 2px rgba(0,0,0,.04);display:flex;align-items:center;gap:10px;cursor:pointer;}
+  .kitcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:12px 14px;box-shadow:0 1px 2px rgba(0,0,0,.04);display:flex;align-items:center;gap:10px;cursor:pointer;}
   .kitcard .reorder{display:flex;flex-direction:column;gap:3px;}
   .orderbtn{background:var(--bg);border:none;border-radius:6px;width:26px;height:22px;font-size:11px;cursor:pointer;color:var(--ink-muted);line-height:1;}
   .orderbtn:disabled{opacity:.3;cursor:default;}
@@ -443,7 +443,7 @@ function rowsFromItems(kitName, kitItems){
   return kitItems.map(it=>{
     const s = statusFor(it.expiry);
     const statusLabel = s.cls==='st-red' ? 'Périmé' : (s.cls==='st-amber' ? 'À changer' : 'OK');
-    return [kitName, it.name, it.mg?it.mg+' mg':'—', it.ml?it.ml+' ml':'—', it.location||'—', String(it.qty||1), it.expiry?formatDateFr(it.expiry):'—', statusLabel, it.controlledBy||'—', it.controlDate?formatDateFrFull(it.controlDate):'—'];
+    return [kitName, it.name, it.mg?it.mg+' mg':'—', it.ml?it.ml+' ml':'—', it.location||'—', String(it.qty||1), it.expiry?formatDateFr(it.expiry):'—', statusLabel, it.expiryLastChanged?formatDateFrFull(it.expiryLastChanged):'—'];
   });
 }
 
@@ -461,8 +461,8 @@ function generatePDFTable(title, rows){
   doc.text('Généré le '+new Date().toLocaleDateString('fr-FR'), 14, 21);
   doc.autoTable({
     startY: 26,
-    head: [['Kit','Produit','mg','ml','Emplacement','Qté','Péremption','Statut','Contrôlé par','Le']],
-    body: rows.length ? rows : [['—','Aucun produit','—','—','—','—','—','—','—','—']],
+    head: [['Kit','Produit','mg','ml','Emplacement','Qté','Péremption','Statut','Dernier contrôle le']],
+    body: rows.length ? rows : [['—','Aucun produit','—','—','—','—','—','—','—']],
     styles:{ fontSize:8, cellPadding:3 },
     headStyles:{ fillColor:[43,76,86] },
     alternateRowStyles:{ fillColor:[237,239,234] },
@@ -968,9 +968,11 @@ function showItemForm(prefill){
 
     if(prefill.id){
       const it = items.find(i=>i.id===prefill.id);
+      const expiryChanged = it.expiry !== expiry;
       Object.assign(it, {name, mg, ml, location, expiry, qty, controlledBy, controlDate});
+      if(expiryChanged){ it.expiryLastChanged = todayISO(); }
     } else {
-      items.push({id: 'it_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, mg, ml, location, expiry, qty, controlledBy, controlDate});
+      items.push({id: 'it_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, mg, ml, location, expiry, qty, controlledBy, controlDate, expiryLastChanged: todayISO()});
     }
     rememberPart(location);
     rememberRecentPartForKit(currentKitId, location);
