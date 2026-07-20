@@ -90,6 +90,23 @@
   /* produits */
   .loc-title{font-family:var(--mono);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line);}
   .loc-title:first-child{margin-top:0;}
+  .part-tab{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--brand);color:#fff;
+    font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.04em;
+    padding:8px 16px;border-radius:10px 10px 0 0;
+    margin-left:4px;margin-bottom:-1px;
+    position:relative;z-index:1;
+  }
+  .part-tab:first-of-type{ margin-top:2px; }
+  .part-folder{
+    border:1.5px solid var(--brand);
+    border-radius:0 12px 12px 12px;
+    padding:12px 11px 4px;
+    background:rgba(43,76,86,.035);
+    margin-bottom:18px;
+  }
+  .part-folder .item{ box-shadow:none; }
   .item{background:var(--surface);border-radius:10px;margin-bottom:10px;padding:12px 14px;display:flex;gap:12px;align-items:center;border-left:6px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.04);}
   .item.st-red{border-left-color:var(--red);}
   .item.st-amber{border-left-color:var(--amber);}
@@ -731,7 +748,8 @@ function renderKitDetail(){
 
   const grouped = groupByPart(items);
   mainZone.innerHTML = grouped.map(group => `
-    <div class="loc-title">${escapeHtml(group.partName)}</div>
+    <div class="part-tab">📍 ${escapeHtml(group.partName.toUpperCase())}</div>
+    <div class="part-folder">
     ${group.items.map(it=>{
       const s = statusFor(it.expiry);
       const dl = doseLine(it);
@@ -747,6 +765,7 @@ function renderKitDetail(){
         <button class="del" data-id="${it.id}" title="Supprimer">✕</button>
       </div>`;
     }).join('')}
+    </div>
   `).join('') + `<div class="footlink"><button id="scrollTopBtn">⬆ Haut de page</button></div>`;
 
   const scrollTopBtn = document.getElementById('scrollTopBtn');
