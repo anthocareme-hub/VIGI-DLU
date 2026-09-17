@@ -905,21 +905,46 @@ function gatherAllData(){
 function restoreAllData(data){
   Object.keys(data).forEach(k=> localStorage.setItem(LS_PREFIX+k, data[k]));
 }
+
 async function exportBackup(){
   const data = gatherAllData();
   const json = JSON.stringify(data, null, 2);
-  const filename = 'vigie-dlu-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json';
-  try{
-    if(navigator.canShare){
-      const file = new File([json], filename, {type:'application/json'});
-      if(navigator.canShare({files:[file]})){
-        await navigator.share({files:[file], title:'Sauvegarde VIGIE DLU'});
-        return;
-      }
+  const filename = 'vigie-dlu-sauvegarde-' + new Date().toISOString().slice(0, 10) + '.json';
+  const blob = new Blob([json], { type: 'application/json' });
+
+  // 1. Tente d'ouvrir le menu de partage natif (Google Drive, Mail, etc.)
+  try {
+    const file = new File([blob], filename, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: 'Sauvegarde VIGIE DLU',
+        text: 'Fichier de sauvegarde VIGIE DLU'
+      });
+      return;
     }
-  }catch(e){}
+  } catch(e) {
+    if (e.name === 'AbortError') return;
+  }
+
+  // 2. Si le partage n'est pas dispo, téléchargement direct du fichier
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Fichier téléchargé : ' + filename);
+    return;
+  } catch(e) {}
+
+  // 3. Repli ultime si bloqué par le navigateur
   showBackupTextModal(json);
 }
+
 function showBackupTextModal(json){
   modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
     <h2>Sauvegarde</h2>
