@@ -787,12 +787,12 @@ function exportUrgentPDF(){
       const descr = dose ? `${it.name} (${dose})` : it.name;
       const statusLabel = s.cls === 'st-red' ? 'PÉRIMÉ' : 'À CHANGER';
       
-      // 1:Kit, 2:Produit, 3:Nouvelle date (case vide), 4:DLU actuelle, 5:Qté, 6:Emplacement, 7:Statut, 8:Fait
+      // 1:Kit, 2:Produit & Dosage, 3:DLU actuelle, 4:Nouvelle date (vide), 5:Qté, 6:Emplacement, 7:Statut, 8:Fait
       rows.push([
         g.kitName,
         descr,
-        '[              / 20    ]', // Case vide en 3e colonne à remplir au stylo
         it.expiry ? formatDateFr(it.expiry) : '—',
+        '', // Espace totalement vide pour écrire au stylo
         String(it.qty || 1),
         it.location || '—',
         statusLabel,
@@ -801,12 +801,12 @@ function exportUrgentPDF(){
     });
   });
 
-  const urgentHeaders = [['Kit', 'Produit & Dosage', 'Nouvelle date', 'DLU actuelle', 'Qté', 'Emplacement', 'Statut', 'Fait']];
+  const urgentHeaders = [['Kit', 'Produit & Dosage', 'DLU actuelle', 'Nouvelle date', 'Qté', 'Emplacement', 'Statut', 'Fait']];
   const colStyles = {
     0: { cellWidth: 26 },
     1: { cellWidth: 42 },
-    2: { cellWidth: 28, fontStyle: 'bold', halign: 'center' }, // 3e colonne mise en valeur
-    3: { cellWidth: 20, halign: 'center' },
+    2: { cellWidth: 22, halign: 'center' }, // 3e colonne : DLU actuelle
+    3: { cellWidth: 26, halign: 'center' }, // 4e colonne : Nouvelle date (vide)
     4: { cellWidth: 10, halign: 'center' },
     5: { cellWidth: 32 },
     6: { cellWidth: 18, halign: 'center' },
