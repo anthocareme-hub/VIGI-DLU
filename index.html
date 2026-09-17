@@ -24,7 +24,8 @@
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans);}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans);user-select:none;-webkit-user-select:none;}
+  input, textarea, select {user-select:auto;-webkit-user-select:auto;}
   @media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important;} }
   #app{max-width:520px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;padding-bottom:96px;}
 
@@ -101,12 +102,37 @@
     gap:10px;
     cursor:pointer;
     box-shadow:0 1px 3px rgba(0,0,0,.05);
+    transition:background-color .15s, transform .1s;
+    -webkit-touch-callout:none;
   }
-  .foldercard:active{ background:#E4ECE5; }
+  .foldercard:active{ opacity:0.85; }
   .folder-info{ flex:1; min-width:0; }
   .folder-name{ font-weight:700; font-size:14.5px; color:var(--brand-dark); text-transform:uppercase; letter-spacing:.03em; }
   .folder-meta{ font-family:var(--mono); font-size:11.5px; color:var(--ink-muted); margin-top:3px; }
   .folder-arrow{ color:var(--brand); font-size:18px; font-weight:700; line-height:1; }
+
+  /* Couleurs de fond personnalisées des compartiments */
+  .foldercard.fcol-default{ background:#F1F4F0; border-left-color:var(--brand); }
+  .foldercard.fcol-red{ background:#FBF0EE; border-left-color:var(--red); }
+  .foldercard.fcol-amber{ background:#FDF6EB; border-left-color:var(--amber); }
+  .foldercard.fcol-green{ background:#EDF6EE; border-left-color:var(--green); }
+  .foldercard.fcol-blue{ background:#E9F0F4; border-left-color:#3B6978; }
+
+  /* Palette de couleur */
+  .color-palette{display:flex;gap:12px;margin:16px 0 20px;justify-content:center;}
+  .color-dot{width:42px;height:42px;border-radius:50%;border:2px solid var(--line);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:bold;color:var(--ink);}
+  .color-dot.active{border:3px solid var(--brand);box-shadow:0 0 0 2px #fff inset;}
+  .color-dot.col-default{background:#F1F4F0;}
+  .color-dot.col-red{background:#FBF0EE;}
+  .color-dot.col-amber{background:#FDF6EB;}
+  .color-dot.col-green{background:#EDF6EE;}
+  .color-dot.col-blue{background:#E9F0F4;}
+
+  /* Actions menu contextuel */
+  .action-sheet-btns{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+  .action-btn{padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:600;text-align:left;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:10px;}
+  .action-btn.normal{background:var(--bg);color:var(--ink);}
+  .action-btn.danger{background:var(--red-bg);color:var(--red);}
 
   /* Produits */
   .section-label{font-family:var(--mono);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line);}
@@ -129,7 +155,6 @@
   .badge.st-amber{background:var(--amber-bg);color:var(--amber);}
   .badge.st-green{background:var(--green-bg);color:var(--green);}
   .del{background:none;border:none;color:var(--ink-muted);font-size:16px;cursor:pointer;padding:4px 6px;}
-  .editfolderbtn{background:none;border:none;color:var(--ink-muted);font-size:15px;cursor:pointer;padding:4px 6px;}
 
   .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;max-width:520px;width:calc(100% - 32px);display:flex;gap:10px;z-index:25;}
   .fab button{flex:1;border:none;border-radius:12px;padding:15px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans);}
@@ -239,6 +264,14 @@ function rememberPart(name){
   }
 }
 
+function getFolderColors(){ return storGet('comp-colors:'+currentKitId) || {}; }
+function setFolderColor(pathStr, colorName){
+  const cols = getFolderColors();
+  if(colorName === 'default') delete cols[pathStr];
+  else cols[pathStr] = colorName;
+  storSet('comp-colors:'+currentKitId, cols);
+}
+
 function getAllKitCompartments(kitId){
   const kItems = storGet('stock:'+kitId) || [];
   const explicit = storGet('comp:'+kitId) || [];
@@ -267,7 +300,7 @@ function showConfirm(message){
   });
 }
 
-/* ---------- Renommage d'un compartiment ---------- */
+/* ---------- Logique compartiments (Renommer, Dupliquer, Supprimer, Couleur) ---------- */
 function renameCompartment(oldPathArray, newName){
   newName = (newName || '').trim();
   if(!newName) return false;
@@ -290,25 +323,199 @@ function renameCompartment(oldPathArray, newName){
     return joinLocationPath(replaced);
   }
 
-  // 1. Mise à jour des articles
+  // 1. Articles
   let kItems = storGet('stock:' + currentKitId) || [];
   kItems = kItems.map(it => {
-    if(it.location){
-      it.location = updatePathString(it.location);
-    }
+    if(it.location) it.location = updatePathString(it.location);
     return it;
   });
   items = kItems;
   storSet('stock:' + currentKitId, kItems);
 
-  // 2. Mise à jour des compartiments explicites
+  // 2. Dossiers explicites
   let explicit = storGet('comp:' + currentKitId) || [];
   explicit = explicit.map(cStr => updatePathString(cStr));
   explicit = Array.from(new Set(explicit));
   storSet('comp:' + currentKitId, explicit);
 
+  // 3. Couleurs
+  const colors = getFolderColors();
+  const newColors = {};
+  Object.keys(colors).forEach(k=>{
+    newColors[updatePathString(k)] = colors[k];
+  });
+  storSet('comp-colors:'+currentKitId, newColors);
+
   rememberPart(newName);
   return true;
+}
+
+function duplicateCompartment(targetPathArray){
+  const depth = targetPathArray.length - 1;
+  const srcName = targetPathArray[depth];
+  const newName = srcName + ' (copie)';
+  const newPathArray = [...targetPathArray.slice(0, depth), newName];
+
+  function copyPathString(pathStr){
+    const parts = parseLocationPath(pathStr);
+    let match = true;
+    for(let i = 0; i <= depth; i++){
+      if((parts[i] || '').toLowerCase() !== (targetPathArray[i] || '').toLowerCase()){
+        match = false;
+        break;
+      }
+    }
+    if(!match) return null;
+    const replaced = [...parts];
+    replaced[depth] = newName;
+    return joinLocationPath(replaced);
+  }
+
+  // Copier les compartiments explicites
+  const explicit = storGet('comp:' + currentKitId) || [];
+  const newExplicit = [...explicit];
+  const targetPathStr = joinLocationPath(targetPathArray);
+  newExplicit.push(joinLocationPath(newPathArray));
+
+  explicit.forEach(cStr => {
+    const cp = copyPathString(cStr);
+    if(cp && !newExplicit.includes(cp)) newExplicit.push(cp);
+  });
+  storSet('comp:' + currentKitId, newExplicit);
+
+  // Copier les articles
+  const kItems = storGet('stock:' + currentKitId) || [];
+  const addedItems = [];
+  kItems.forEach(it => {
+    if(!it.location) return;
+    const newLoc = copyPathString(it.location);
+    if(newLoc !== null){
+      addedItems.push({
+        ...it,
+        id: 'it_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        location: newLoc,
+        modifiedDate: todayISO()
+      });
+    }
+  });
+
+  items = [...kItems, ...addedItems];
+  storSet('stock:' + currentKitId, items);
+
+  // Copier la couleur
+  const colors = getFolderColors();
+  if(colors[targetPathStr]){
+    colors[joinLocationPath(newPathArray)] = colors[targetPathStr];
+    storSet('comp-colors:'+currentKitId, colors);
+  }
+
+  rememberPart(newName);
+  updateKitSummary();
+  renderAll();
+  toast('Compartiment dédoublé');
+}
+
+async function deleteCompartment(targetPathArray){
+  const folderName = targetPathArray[targetPathArray.length - 1];
+  const countInside = items.filter(it => {
+    const p = parseLocationPath(it.location);
+    return targetPathArray.every((seg, i) => (p[i] || '').toLowerCase() === seg.toLowerCase());
+  }).length;
+
+  const msg = countInside > 0
+    ? `Supprimer le compartiment "${folderName}" et les ${countInside} produit(s) qu'il contient ?`
+    : `Supprimer le compartiment "${folderName}" ?`;
+
+  const sure = await showConfirm(msg);
+  if(!sure) return;
+
+  items = items.filter(it => {
+    const p = parseLocationPath(it.location);
+    return !targetPathArray.every((seg, i) => (p[i] || '').toLowerCase() === seg.toLowerCase());
+  });
+  storSet('stock:' + currentKitId, items);
+
+  let explicitCompartments = storGet('comp:' + currentKitId) || [];
+  explicitCompartments = explicitCompartments.filter(cPathStr => {
+    const p = parseLocationPath(cPathStr);
+    return !targetPathArray.every((seg, i) => (p[i] || '').toLowerCase() === seg.toLowerCase());
+  });
+  storSet('comp:' + currentKitId, explicitCompartments);
+
+  updateKitSummary();
+  renderAll();
+  toast('Compartiment supprimé');
+}
+
+function showFolderActionMenu(folderName){
+  const targetPath = [...currentSubPath, folderName];
+  const targetPathStr = joinLocationPath(targetPath);
+
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Compartiment : ${escapeHtml(folderName)}</h2>
+    <div class="hint">Options de gestion pour ce rangement</div>
+    <div class="action-sheet-btns">
+      <button class="action-btn normal" id="actRename">✏️ Renommer</button>
+      <button class="action-btn normal" id="actColor">🎨 Personnaliser la couleur</button>
+      <button class="action-btn normal" id="actDuplicate">📋 Dédoubler le compartiment</button>
+      <button class="action-btn danger" id="actDelete">✕ Supprimer</button>
+    </div>
+    <div class="modalbtns" style="margin-top:16px;">
+      <button class="btn-secondary" id="actCancel" style="flex:1;">Fermer</button>
+    </div>
+  </div></div>`;
+
+  document.getElementById('actCancel').addEventListener('click', closeModal);
+  
+  document.getElementById('actRename').addEventListener('click', ()=>{
+    closeModal();
+    showRenameCompartmentModal(targetPath);
+  });
+
+  document.getElementById('actColor').addEventListener('click', ()=>{
+    closeModal();
+    showCustomizeColorModal(targetPathStr, folderName);
+  });
+
+  document.getElementById('actDuplicate').addEventListener('click', ()=>{
+    closeModal();
+    duplicateCompartment(targetPath);
+  });
+
+  document.getElementById('actDelete').addEventListener('click', ()=>{
+    closeModal();
+    deleteCompartment(targetPath);
+  });
+}
+
+function showCustomizeColorModal(pathStr, folderName){
+  const colors = getFolderColors();
+  const currentColor = colors[pathStr] || 'default';
+  
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Personnaliser la couleur</h2>
+    <div class="hint">Choisis une teinte de fond pour <strong>${escapeHtml(folderName)}</strong> :</div>
+    <div class="color-palette">
+      <div class="color-dot col-default ${currentColor==='default'?'active':''}" data-col="default" title="Défaut">✓</div>
+      <div class="color-dot col-red ${currentColor==='red'?'active':''}" data-col="red" title="Rouge"></div>
+      <div class="color-dot col-amber ${currentColor==='amber'?'active':''}" data-col="amber" title="Ambre"></div>
+      <div class="color-dot col-green ${currentColor==='green'?'active':''}" data-col="green" title="Vert"></div>
+      <div class="color-dot col-blue ${currentColor==='blue'?'active':''}" data-col="blue" title="Bleu"></div>
+    </div>
+    <div class="modalbtns">
+      <button class="btn-secondary" id="cancelColorBtn" style="flex:1;">Annuler</button>
+    </div>
+  </div></div>`;
+
+  document.getElementById('cancelColorBtn').addEventListener('click', closeModal);
+  document.querySelectorAll('.color-dot').forEach(dot => {
+    dot.addEventListener('click', ()=>{
+      setFolderColor(pathStr, dot.dataset.col);
+      closeModal();
+      renderAll();
+      toast('Couleur mise à jour');
+    });
+  });
 }
 
 function showRenameCompartmentModal(oldPathArray, onDoneCallback){
@@ -316,7 +523,7 @@ function showRenameCompartmentModal(oldPathArray, onDoneCallback){
   modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
     <h2>Renommer le compartiment</h2>
     <div class="field">
-      <label>Nom actuel : <strong>${escapeHtml(oldName)}</strong></label>
+      <label>Nouveau nom</label>
       <input type="text" id="renameCompInput" value="${escapeHtml(oldName)}">
     </div>
     <div class="modalbtns">
@@ -779,6 +986,7 @@ function showRenameKitModal(){
     if(!ok) saveFailToast();
     storDelete('stock:'+currentKitId);
     storDelete('comp:'+currentKitId);
+    storDelete('comp-colors:'+currentKitId);
     closeModal();
     view='kits';
     renderAll();
@@ -798,7 +1006,7 @@ function openKit(kitId, renameDirectly){
   if(renameDirectly) showRenameKitModal();
 }
 
-/* ---------- Détail d'un kit (arborescence & tri) ---------- */
+/* ---------- Détail d'un kit (arborescence, clic long & tri) ---------- */
 function renderKitDetail(){
   fabZone.innerHTML = `
     <button class="secondaryfab" id="openAddCompartmentBtn">+ Compartiment</button>
@@ -875,15 +1083,18 @@ function renderKitDetail(){
   }
 
   let html = '';
+  const folderColors = getFolderColors();
 
-  // 1. COMPARTIMENTS EN PREMIER (avec boutons ✏ renommer et ✕ supprimer)
+  // 1. COMPARTIMENTS EN PREMIER
   if(folderNames.length > 0){
-    html += `<div class="section-label">Compartiments (${folderNames.length})</div>`;
+    html += `<div class="section-label">Compartiments (${folderNames.length}) — <span style="text-transform:none;opacity:.8;">maintien long pour options</span></div>`;
     html += folderNames.map(fName => {
       const fItems = subFoldersMap[fName] || [];
       const alerts = countAlerts(fItems);
+      const fPathStr = joinLocationPath([...currentSubPath, fName]);
+      const col = folderColors[fPathStr] || 'default';
       return `
-        <div class="foldercard" data-folder="${escapeHtml(fName)}">
+        <div class="foldercard fcol-${col}" data-folder="${escapeHtml(fName)}">
           <div class="folder-info">
             <div class="folder-name">${escapeHtml(fName)}</div>
             <div class="folder-meta">${fItems.length} référence(s)</div>
@@ -893,8 +1104,6 @@ function renderKitDetail(){
             ${alerts.amber ? `<span class="pill st-amber">${alerts.amber}</span>`:''}
             <span class="folder-arrow">›</span>
           </div>
-          <button class="editfolderbtn" data-folder="${escapeHtml(fName)}" title="Renommer ce compartiment">✏</button>
-          <button class="del del-folder" data-folder="${escapeHtml(fName)}" title="Supprimer ce compartiment">✕</button>
         </div>`;
     }).join('');
   }
@@ -926,61 +1135,42 @@ function renderKitDetail(){
   const scrollTopBtn = document.getElementById('scrollTopBtn');
   if(scrollTopBtn) scrollTopBtn.addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'}));
 
+  // Écouteur clic court + clic long sur les compartiments
   mainZone.querySelectorAll('.foldercard').forEach(fc => {
-    fc.addEventListener('click', (e)=>{
-      if(e.target.closest('.del-folder') || e.target.closest('.editfolderbtn')) return;
-      currentSubPath.push(fc.dataset.folder);
-      renderAll();
+    let pressTimer = null;
+    let isLongPress = false;
+
+    function startPress(){
+      isLongPress = false;
+      pressTimer = setTimeout(()=>{
+        isLongPress = true;
+        showFolderActionMenu(fc.dataset.folder);
+      }, 500);
+    }
+    function cancelPress(){
+      if(pressTimer) clearTimeout(pressTimer);
+    }
+
+    fc.addEventListener('touchstart', startPress, {passive:true});
+    fc.addEventListener('touchend', (e)=>{
+      cancelPress();
+      if(isLongPress){ e.preventDefault(); }
     });
-  });
+    fc.addEventListener('touchmove', cancelPress);
+    fc.addEventListener('mousedown', startPress);
+    fc.addEventListener('mouseup', cancelPress);
+    fc.addEventListener('mouseleave', cancelPress);
 
-  mainZone.querySelectorAll('.editfolderbtn').forEach(btn => {
-    btn.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      const folderName = btn.dataset.folder;
-      showRenameCompartmentModal([...currentSubPath, folderName]);
+    fc.addEventListener('click', ()=>{
+      if(!isLongPress){
+        currentSubPath.push(fc.dataset.folder);
+        renderAll();
+      }
     });
-  });
 
-  mainZone.querySelectorAll('.del-folder').forEach(btn => {
-    btn.addEventListener('click', async (e)=>{
-      e.stopPropagation();
-      const folderName = btn.dataset.folder;
-      const targetPath = [...currentSubPath, folderName];
-
-      const countInside = items.filter(it => {
-        const p = parseLocationPath(it.location);
-        return targetPath.every((seg, i) => (p[i] || '').toLowerCase() === seg.toLowerCase());
-      }).length;
-
-      const msg = countInside > 0
-        ? `Supprimer le compartiment "${folderName}" et les ${countInside} produit(s) qu'il contient ?`
-        : `Supprimer le compartiment "${folderName}" ?`;
-
-      const sure = await showConfirm(msg);
-      if(!sure) return;
-
-      // 1. Suppression des items associés
-      items = items.filter(it => {
-        const p = parseLocationPath(it.location);
-        const matches = targetPath.every((seg, i) => (p[i] || '').toLowerCase() === seg.toLowerCase());
-        return !matches;
-      });
-      const ok1 = storSet('stock:' + currentKitId, items);
-
-      // 2. Nettoyage de la liste explicite
-      let explicitCompartments = storGet('comp:' + currentKitId) || [];
-      explicitCompartments = explicitCompartments.filter(cPathStr => {
-        const p = parseLocationPath(cPathStr);
-        const matches = targetPath.every((seg, i) => (p[i] || '').toLowerCase() === seg.toLowerCase());
-        return !matches;
-      });
-      const ok2 = storSet('comp:' + currentKitId, explicitCompartments);
-
-      if(!ok1 || !ok2) saveFailToast();
-      updateKitSummary();
-      renderAll();
-      toast('Compartiment supprimé');
+    fc.addEventListener('contextmenu', (e)=>{
+      e.preventDefault();
+      showFolderActionMenu(fc.dataset.folder);
     });
   });
 
@@ -1196,7 +1386,6 @@ function showItemForm(prefill){
     } else if(locSelect.value === '__CUSTOM__'){
       locInput.focus();
     } else if(locSelect.value === '__RENAME__'){
-      // Sauvegarde temporaire des valeurs du formulaire en cours
       const draft = {
         id: prefill.id,
         name: document.getElementById('f-name').value,
@@ -1208,7 +1397,6 @@ function showItemForm(prefill){
       };
       closeModal();
       showSelectCompartmentToRenameModal(()=>{
-        // On rouvre le formulaire en reprenant les données
         showItemForm(draft);
       });
       return;
