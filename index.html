@@ -13,6 +13,1539 @@
 <title>VIGIE DLU</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<!-- Fichier de données par défaut pour les nouveaux utilisateurs -->
+<script src="default-data.js"></script>
+<style>
+  :root{
+    --bg:#EDEFEA; --surface:#FFFFFF; --ink:#1B2A2E; --ink-muted:#5B6B6C;
+    --brand:#2B4C56; --brand-dark:#1D363E; --line:#D8DCD3;
+    --red:#B8433C;   --red-bg:#F7E6E4;
+    --amber:#B9791F; --amber-bg:#FBF0DD;
+    --green:#3F7D53; --green-bg:#E7F1E8;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans);user-select:none;-webkit-user-select:none;}
+  input, textarea, select {user-select:auto;-webkit-user-select:auto;}
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important;} }
+  #app{max-width:520px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;padding-bottom:96px;}
+
+  header.top{background:var(--brand);color:#fff;padding:18px 18px 14px;position:sticky;top:0;z-index:20;}
+  .wordmark{font-family:var(--mono);font-weight:700;letter-spacing:.12em;font-size:19px;text-transform:uppercase;}
+  .subtitle{font-size:12px;color:#BFD2D3;margin-top:2px;letter-spacing:.02em;}
+
+  .navbar{position:sticky;top:0;z-index:19;background:var(--brand-dark);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;min-height:24px;}
+  .navbar .crumb{opacity:.6;font-size:13px;}
+  .navbar .current{font-weight:700;font-family:var(--mono);font-size:15px;}
+  .navbar button.link{
+    background:rgba(255,255,255,.15);
+    border:none;
+    color:#fff;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    padding:8px 14px;
+    border-radius:10px;
+    font-family:var(--sans);
+  }
+  .navbar button.link:active{ background:rgba(255,255,255,.28); }
+  .navbar .spacer{flex:1;}
+
+  .subbar{background:#E0E5DC;border-bottom:1px solid var(--line);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;}
+  .subbar-path{font-family:var(--mono);color:var(--brand);font-weight:600;display:flex;align-items:center;gap:4px;overflow-x:auto;white-space:nowrap;flex:1;}
+  .subbar-path button{background:none;border:none;color:var(--brand);font-family:var(--mono);font-size:12px;font-weight:700;padding:2px 4px;cursor:pointer;text-decoration:underline;}
+  .sort-toggle-btn{background:var(--surface);border:1px solid var(--line);color:var(--brand);padding:5px 10px;border-radius:8px;font-family:var(--mono);font-weight:700;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+
+  .alertbar{margin:14px 16px 0;padding:12px 14px;border-radius:10px;font-size:13.5px;line-height:1.4;}
+  .alertbar.has-red{background:var(--red-bg);color:var(--red);border:1px solid #e6c3bf;}
+  .alertbar.ok{background:var(--green-bg);color:var(--green);border:1px solid #cfe3d2;}
+
+  main{flex:1;padding:14px 16px 0;}
+  .empty{text-align:center;color:var(--ink-muted);padding:50px 20px;font-size:14px;line-height:1.6;}
+  .footlink{text-align:center;padding:24px 0 8px;}
+  .footlink button{background:none;border:none;color:var(--ink-muted);font-size:12px;text-decoration:underline;cursor:pointer;}
+
+  /* Accueil */
+  .homewrap{padding-top:6px;}
+  .homeimg{width:100%;aspect-ratio:1/1;border-radius:18px;overflow:hidden;background:var(--surface);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;}
+  .homeimg img{width:100%;height:100%;object-fit:cover;display:block;}
+  .homeimg-placeholder{color:var(--ink-muted);font-size:13px;text-align:center;padding:20px;line-height:1.5;}
+  .link-change{display:block;text-align:center;background:none;border:none;color:var(--brand);font-size:12.5px;text-decoration:underline;margin:12px auto 24px;cursor:pointer;}
+  .homebtns{display:flex;flex-direction:column;gap:12px;}
+  .homebtns button{padding:18px;border-radius:14px;font-size:15.5px;font-weight:700;border:none;cursor:pointer;font-family:var(--sans);}
+  .homebtns .hp{background:var(--brand);color:#fff;}
+  .homebtns .hs{background:var(--surface);color:var(--brand);border:1.5px solid var(--brand);}
+
+  /* Kits */
+  .kitcard{background:var(--surface);border:1.5px solid rgba(43,76,86,.22);border-radius:10px;margin-bottom:10px;padding:12px 14px;box-shadow:0 1px 2px rgba(0,0,0,.04);display:flex;align-items:center;gap:10px;cursor:pointer;}
+  .kitcard .reorder{display:flex;flex-direction:column;gap:3px;}
+  .orderbtn{background:var(--bg);border:none;border-radius:6px;width:26px;height:22px;font-size:11px;cursor:pointer;color:var(--ink-muted);line-height:1;}
+  .orderbtn:disabled{opacity:.3;cursor:default;}
+  .kitcard .kinfo{flex:1;min-width:0;}
+  .kitcard .kname{font-weight:600;font-size:15px;}
+  .kitcard .kmeta{font-family:var(--mono);font-size:11.5px;color:var(--ink-muted);margin-top:3px;}
+  .kitcard .kbadges{display:flex;gap:6px;align-items:center;}
+  .pill{font-family:var(--mono);font-weight:700;font-size:11px;padding:4px 7px;border-radius:6px;}
+  .pill.st-red{background:var(--red-bg);color:var(--red);}
+  .pill.st-amber{background:var(--amber-bg);color:var(--amber);}
+  .kitcard .editbtn{background:none;border:none;font-size:15px;color:var(--ink-muted);cursor:pointer;padding:6px;}
+
+  /* Tuiles de compartiment */
+  .foldercard{
+    background:#F1F4F0;
+    border:1.5px solid var(--brand);
+    border-left:6px solid var(--brand);
+    border-radius:10px;
+    margin-bottom:10px;
+    padding:13px 15px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    box-shadow:0 1px 3px rgba(0,0,0,.05);
+    transition:background-color .15s, transform .1s;
+    -webkit-touch-callout:none;
+  }
+  .foldercard:active{ opacity:0.85; }
+  .folder-info{ flex:1; min-width:0; }
+  .folder-name{ font-weight:700; font-size:14.5px; color:var(--brand-dark); text-transform:uppercase; letter-spacing:.03em; }
+  .folder-meta{ font-family:var(--mono); font-size:11.5px; color:var(--ink-muted); margin-top:3px; }
+  .folder-arrow{ color:var(--brand); font-size:18px; font-weight:700; line-height:1; }
+
+  /* Couleurs de fond personnalisées des compartiments */
+  .foldercard.fcol-default{ background:#F1F4F0; border-left-color:var(--brand); }
+  .foldercard.fcol-red{ background:#FBF0EE; border-left-color:var(--red); }
+  .foldercard.fcol-amber{ background:#FDF6EB; border-left-color:var(--amber); }
+  .foldercard.fcol-green{ background:#EDF6EE; border-left-color:var(--green); }
+  .foldercard.fcol-blue{ background:#E9F0F4; border-left-color:#3B6978; }
+
+  /* Palette de couleur */
+  .color-palette{display:flex;gap:12px;margin:16px 0 20px;justify-content:center;}
+  .color-dot{width:42px;height:42px;border-radius:50%;border:2px solid var(--line);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:bold;color:var(--ink);}
+  .color-dot.active{border:3px solid var(--brand);box-shadow:0 0 0 2px #fff inset;}
+  .color-dot.col-default{background:#F1F4F0;}
+  .color-dot.col-red{background:#FBF0EE;}
+  .color-dot.col-amber{background:#FDF6EB;}
+  .color-dot.col-green{background:#EDF6EE;}
+  .color-dot.col-blue{background:#E9F0F4;}
+
+  /* Actions menu contextuel */
+  .action-sheet-btns{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+  .action-btn{padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:600;text-align:left;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:10px;}
+  .action-btn.normal{background:var(--bg);color:var(--ink);}
+  .action-btn.danger{background:var(--red-bg);color:var(--red);}
+
+  /* Produits */
+  .section-label{font-family:var(--mono);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line);}
+  .loc-title{font-family:var(--mono);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line);}
+  .loc-title:first-child{margin-top:0;}
+
+  .item{background:var(--surface);border-radius:10px;margin-bottom:10px;padding:12px 14px;display:flex;gap:12px;align-items:center;border-left:6px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:pointer;}
+  .item.st-red{border-left-color:var(--red);}
+  .item.st-amber{border-left-color:var(--amber);}
+  .item.st-green{border-left-color:var(--green);}
+  .item .info{flex:1;min-width:0;}
+  .item .name{font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .item .dose{font-size:12px;color:var(--ink-muted);margin-top:2px;}
+  .item .location{font-size:12px;color:var(--brand);margin-top:2px;}
+  .item .checked{font-size:11px;color:var(--green);margin-top:2px;}
+  .item .meta{font-family:var(--mono);font-size:11.5px;color:var(--ink-muted);margin-top:3px;}
+  .item .qty{font-family:var(--mono);font-size:11.5px;color:var(--ink-muted);}
+  .badge{font-family:var(--mono);font-weight:700;font-size:12px;padding:5px 8px;border-radius:6px;white-space:nowrap;}
+  .badge.st-red{background:var(--red-bg);color:var(--red);}
+  .badge.st-amber{background:var(--amber-bg);color:var(--amber);}
+  .badge.st-green{background:var(--green-bg);color:var(--green);}
+  .del{background:none;border:none;color:var(--ink-muted);font-size:16px;cursor:pointer;padding:4px 6px;}
+
+  .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;max-width:520px;width:calc(100% - 32px);display:flex;gap:10px;z-index:25;}
+  .fab button{flex:1;border:none;border-radius:12px;padding:15px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans);}
+  .fab .primaryfab{background:var(--brand);color:#fff;}
+  .fab .secondaryfab{background:var(--surface);color:var(--brand);border:1.5px solid var(--brand);}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(20,30,32,.55);display:flex;align-items:flex-end;justify-content:center;z-index:50;}
+  .modal{background:var(--surface);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:20px 18px 24px;max-height:88vh;overflow-y:auto;}
+  .modal h2{font-size:16px;margin:0 0 14px;letter-spacing:.01em;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;color:var(--ink-muted);margin-bottom:5px;font-weight:600;}
+  .field input, .field select{width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14.5px;font-family:var(--sans);background:#fff;color:var(--ink);}
+  .field input:focus, .field select:focus{outline:2px solid var(--brand);outline-offset:1px;}
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;}
+  .modalbtns{display:flex;gap:10px;margin-top:16px;}
+  .modalbtns button{flex:1;border:none;border-radius:9px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans);}
+  .btn-primary{background:var(--brand);color:#fff;}
+  .btn-secondary{background:var(--bg);color:var(--ink-muted);}
+  .btn-danger{background:var(--red-bg);color:var(--red);}
+  .hint{font-size:11.5px;color:var(--ink-muted);margin-top:-4px;margin-bottom:12px;line-height:1.4;}
+  .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--brand-dark);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:60;max-width:80%;text-align:center;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="wordmark">VIGIE DLU</div>
+    <div class="subtitle">stockage 100% local sur cet appareil</div>
+  </header>
+  <div class="navbar" id="navbar"></div>
+  <div id="subbarZone"></div>
+  <div id="alertZone"></div>
+  <main id="mainZone"></main>
+  <div class="fab" id="fabZone"></div>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+/* ---------- Stockage 100% local ---------- */
+let lastStorageError = '';
+function storGet(key){
+  try{ const raw = localStorage.getItem('vigie:'+key); return raw ? JSON.parse(raw) : null; }
+  catch(e){ console.error('lecture locale impossible', key, e); return null; }
+}
+function storSet(key, value){
+  try{ localStorage.setItem('vigie:'+key, JSON.stringify(value)); return true; }
+  catch(e){ console.error('écriture locale impossible', key, e); lastStorageError = (e&&e.message)?e.message:String(e); return false; }
+}
+function storDelete(key){ try{ localStorage.removeItem('vigie:'+key); }catch(e){} }
+function saveFailToast(){ toast("Échec de l'enregistrement" + (lastStorageError ? ' ('+lastStorageError+')' : '') + ' — réessaie'); }
+
+/* ---------- État global ---------- */
+let kitsIndex = [];
+let view = 'home';
+let currentKitId = null;
+let currentKitName = null;
+let items = [];
+let currentSubPath = [];
+let kitSortMode = 'name';
+
+const modalRoot = document.getElementById('modalRoot');
+const navbar = document.getElementById('navbar');
+const subbarZone = document.getElementById('subbarZone');
+const mainZone = document.getElementById('mainZone');
+const alertZone = document.getElementById('alertZone');
+const fabZone = document.getElementById('fabZone');
+
+function closeModal(){ modalRoot.innerHTML = ''; }
+function toast(msg){
+  const t = document.createElement('div');
+  t.className='toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2400);
+}
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function formatDateFr(iso){ const [y,m] = iso.split('-'); return `${m}/${y}`; }
+function formatDateFrFull(iso){ const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function doseLine(it){
+  const parts = [];
+  if(it.mg) parts.push(it.mg+' mg');
+  if(it.ml) parts.push(it.ml+' ml');
+  return parts.join(' · ');
+}
+
+function parseLocationPath(locStr){
+  if(!locStr || !locStr.trim()) return [];
+  return locStr.split('/').map(s=>s.trim()).filter(Boolean);
+}
+function joinLocationPath(arr){
+  return (arr||[]).filter(Boolean).join(' / ');
+}
+
+function getKnownParts(){ return storGet('known-parts') || []; }
+function rememberPart(name){
+  if(!name) return;
+  const parts = getKnownParts();
+  if(!parts.includes(name)){
+    parts.push(name);
+    storSet('known-parts', parts);
+  }
+}
+
+function getFolderColors(){ return storGet('comp-colors:'+currentKitId) || {}; }
+function setFolderColor(pathStr, colorName){
+  const cols = getFolderColors();
+  if(colorName === 'default') delete cols[pathStr];
+  else cols[pathStr] = colorName;
+  storSet('comp-colors:'+currentKitId, cols);
+}
+
+function getAllKitCompartments(kitId){
+  const kItems = storGet('stock:'+kitId) || [];
+  const explicit = storGet('comp:'+kitId) || [];
+  const set = new Set();
+  kItems.forEach(it=>{
+    if(it.location && it.location.trim()) set.add(it.location.trim());
+  });
+  explicit.forEach(c=>{
+    if(c && c.trim()) set.add(c.trim());
+  });
+  return Array.from(set).sort((a,b)=> a.localeCompare(b,'fr',{sensitivity:'base'}));
+}
+
+function showConfirm(message){
+  return new Promise(resolve=>{
+    modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+      <h2>Confirmer</h2>
+      <div class="hint" style="margin-bottom:16px;">${escapeHtml(message)}</div>
+      <div class="modalbtns">
+        <button class="btn-secondary" id="confirmNoBtn">Annuler</button>
+        <button class="btn-danger" id="confirmYesBtn">Confirmer</button>
+      </div>
+    </div></div>`;
+    document.getElementById('confirmNoBtn').addEventListener('click', ()=>{ closeModal(); resolve(false); });
+    document.getElementById('confirmYesBtn').addEventListener('click', ()=>{ closeModal(); resolve(true); });
+  });
+}
+
+/* ---------- Logique compartiments ---------- */
+function renameCompartment(oldPathArray, newName){
+  newName = (newName || '').trim();
+  if(!newName) return false;
+  
+  const depth = oldPathArray.length - 1;
+  const newPathArray = [...oldPathArray.slice(0, depth), newName];
+
+  function updatePathString(pathStr){
+    const parts = parseLocationPath(pathStr);
+    let match = true;
+    for(let i = 0; i <= depth; i++){
+      if((parts[i] || '').toLowerCase() !== (oldPathArray[i] || '').toLowerCase()){
+        match = false;
+        break;
+      }
+    }
+    if(!match) return pathStr;
+    const replaced = [...parts];
+    replaced[depth] = newName;
+    return joinLocationPath(replaced);
+  }
+
+  let kItems = storGet('stock:' + currentKitId) || [];
+  kItems = kItems.map(it => {
+    if(it.location) it.location = updatePathString(it.location);
+    return it;
+  });
+  items = kItems;
+  storSet('stock:' + currentKitId, kItems);
+
+  let explicit = storGet('comp:' + currentKitId) || [];
+  explicit = explicit.map(cStr => updatePathString(cStr));
+  explicit = Array.from(new Set(explicit));
+  storSet('comp:' + currentKitId, explicit);
+
+  const colors = getFolderColors();
+  const newColors = {};
+  Object.keys(colors).forEach(k=>{
+    newColors[updatePathString(k)] = colors[k];
+  });
+  storSet('comp-colors:'+currentKitId, newColors);
+
+  rememberPart(newName);
+  return true;
+}
+
+function duplicateCompartment(targetPathArray){
+  const depth = targetPathArray.length - 1;
+  const srcName = targetPathArray[depth];
+  const newName = srcName + ' (copie)';
+  const newPathArray = [...targetPathArray.slice(0, depth), newName];
+
+  function copyPathString(pathStr){
+    const parts = parseLocationPath(pathStr);
+    let match = true;
+    for(let i = 0; i <= depth; i++){
+      if((parts[i] || '').toLowerCase() !== (targetPathArray[i] || '').toLowerCase()){
+        match = false;
+        break;
+      }
+    }
+    if(!match) return null;
+    const replaced = [...parts];
+    replaced[depth] = newName;
+    return joinLocationPath(replaced);
+  }
+
+  const explicit = storGet('comp:' + currentKitId) || [];
+  const newExplicit = [...explicit];
+  const targetPathStr = joinLocationPath(targetPathArray);
+  newExplicit.push(joinLocationPath(newPathArray));
+
+  explicit.forEach(cStr => {
+    const cp = copyPathString(cStr);
+    if(cp && !newExplicit.includes(cp)) newExplicit.push(cp);
+  });
+  storSet('comp:' + currentKitId, newExplicit);
+
+  const kItems = storGet('stock:' + currentKitId) || [];
+  const addedItems = [];
+  kItems.forEach(it => {
+    if(!it.location) return;
+    const newLoc = copyPathString(it.location);
+    if(newLoc !== null){
+      addedItems.push({
+        ...it,
+        id: 'it_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        location: newLoc,
+        modifiedDate: todayISO()
+      });
+    }
+  });
+
+  items = [...kItems, ...addedItems];
+  storSet('stock:' + currentKitId, items);
+
+  const colors = getFolderColors();
+  if(colors[targetPathStr]){
+    colors[joinLocationPath(newPathArray)] = colors[targetPathStr];
+    storSet('comp-colors:'+currentKitId, colors);
+  }
+
+  rememberPart(newName);
+  updateKitSummary();
+  renderAll();
+  toast('Compartiment dédoublé');
+}
+
+async function deleteCompartment(targetPathArray){
+  const folderName = targetPathArray[targetPathArray.length - 1];
+  const countInside = items.filter(it => {
+    const p = parseLocationPath(it.location);
+    return targetPathArray.every((seg, i) => (p[i] || '').toLowerCase() === seg.toLowerCase());
+  }).length;
+
+  const msg = countInside > 0
+    ? `Supprimer le compartiment "${folderName}" et les ${countInside} produit(s) qu'il contient ?`
+    : `Supprimer le compartiment "${folderName}" ?`;
+
+  const sure = await showConfirm(msg);
+  if(!sure) return;
+
+  items = items.filter(it => {
+    const p = parseLocationPath(it.location);
+    return !targetPathArray.every((seg, i) => (p[i] || '').toLowerCase() === seg.toLowerCase());
+  });
+  storSet('stock:' + currentKitId, items);
+
+  let explicitCompartments = storGet('comp:' + currentKitId) || [];
+  explicitCompartments = explicitCompartments.filter(cPathStr => {
+    const p = parseLocationPath(cPathStr);
+    return !targetPathArray.every((seg, i) => (p[i] || '').toLowerCase() === seg.toLowerCase());
+  });
+  storSet('comp:' + currentKitId, explicitCompartments);
+
+  updateKitSummary();
+  renderAll();
+  toast('Compartiment supprimé');
+}
+
+function showFolderActionMenu(folderName){
+  const targetPath = [...currentSubPath, folderName];
+  const targetPathStr = joinLocationPath(targetPath);
+
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Compartiment : ${escapeHtml(folderName)}</h2>
+    <div class="hint">Options de gestion pour ce rangement</div>
+    <div class="action-sheet-btns">
+      <button class="action-btn normal" id="actRename">✏️ Renommer</button>
+      <button class="action-btn normal" id="actColor">🎨 Personnaliser la couleur</button>
+      <button class="action-btn normal" id="actDuplicate">📋 Dédoubler le compartiment</button>
+      <button class="action-btn danger" id="actDelete">✕ Supprimer</button>
+    </div>
+    <div class="modalbtns" style="margin-top:16px;">
+      <button class="btn-secondary" id="actCancel" style="flex:1;">Fermer</button>
+    </div>
+  </div></div>`;
+
+  document.getElementById('actCancel').addEventListener('click', closeModal);
+  document.getElementById('actRename').addEventListener('click', ()=>{
+    closeModal();
+    showRenameCompartmentModal(targetPath);
+  });
+  document.getElementById('actColor').addEventListener('click', ()=>{
+    closeModal();
+    showCustomizeColorModal(targetPathStr, folderName);
+  });
+  document.getElementById('actDuplicate').addEventListener('click', ()=>{
+    closeModal();
+    duplicateCompartment(targetPath);
+  });
+  document.getElementById('actDelete').addEventListener('click', ()=>{
+    closeModal();
+    deleteCompartment(targetPath);
+  });
+}
+
+function showCustomizeColorModal(pathStr, folderName){
+  const colors = getFolderColors();
+  const currentColor = colors[pathStr] || 'default';
+  
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Personnaliser la couleur</h2>
+    <div class="hint">Choisis une teinte de fond pour <strong>${escapeHtml(folderName)}</strong> :</div>
+    <div class="color-palette">
+      <div class="color-dot col-default ${currentColor==='default'?'active':''}" data-col="default" title="Défaut">✓</div>
+      <div class="color-dot col-red ${currentColor==='red'?'active':''}" data-col="red" title="Rouge"></div>
+      <div class="color-dot col-amber ${currentColor==='amber'?'active':''}" data-col="amber" title="Ambre"></div>
+      <div class="color-dot col-green ${currentColor==='green'?'active':''}" data-col="green" title="Vert"></div>
+      <div class="color-dot col-blue ${currentColor==='blue'?'active':''}" data-col="blue" title="Bleu"></div>
+    </div>
+    <div class="modalbtns">
+      <button class="btn-secondary" id="cancelColorBtn" style="flex:1;">Annuler</button>
+    </div>
+  </div></div>`;
+
+  document.getElementById('cancelColorBtn').addEventListener('click', closeModal);
+  document.querySelectorAll('.color-dot').forEach(dot => {
+    dot.addEventListener('click', ()=>{
+      setFolderColor(pathStr, dot.dataset.col);
+      closeModal();
+      renderAll();
+      toast('Couleur mise à jour');
+    });
+  });
+}
+
+function showRenameCompartmentModal(oldPathArray, onDoneCallback){
+  const oldName = oldPathArray[oldPathArray.length - 1];
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Renommer le compartiment</h2>
+    <div class="field">
+      <label>Nouveau nom</label>
+      <input type="text" id="renameCompInput" value="${escapeHtml(oldName)}">
+    </div>
+    <div class="modalbtns">
+      <button class="btn-secondary" id="cancelRenameCompBtn">Annuler</button>
+      <button class="btn-primary" id="saveRenameCompBtn">Enregistrer</button>
+    </div>
+  </div></div>`;
+
+  document.getElementById('cancelRenameCompBtn').addEventListener('click', closeModal);
+  document.getElementById('saveRenameCompBtn').addEventListener('click', ()=>{
+    const newName = document.getElementById('renameCompInput').value.trim();
+    if(!newName){ toast('Le nom ne peut pas être vide'); return; }
+    if(newName === oldName){ closeModal(); return; }
+
+    renameCompartment(oldPathArray, newName);
+    closeModal();
+    if(onDoneCallback) onDoneCallback(newName);
+    else renderAll();
+    toast('Compartiment renommé');
+  });
+}
+
+function showSelectCompartmentToRenameModal(onDoneCallback){
+  const allComps = getAllKitCompartments(currentKitId);
+  if(!allComps.length){
+    toast('Aucun compartiment existant à renommer');
+    return;
+  }
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Choisir le compartiment à renommer</h2>
+    <div class="field">
+      <label>Compartiment</label>
+      <select id="selectCompToRename">
+        ${allComps.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modalbtns">
+      <button class="btn-secondary" id="cancelSelectCompBtn">Annuler</button>
+      <button class="btn-primary" id="confirmSelectCompBtn">Suivant</button>
+    </div>
+  </div></div>`;
+
+  document.getElementById('cancelSelectCompBtn').addEventListener('click', closeModal);
+  document.getElementById('confirmSelectCompBtn').addEventListener('click', ()=>{
+    const selected = document.getElementById('selectCompToRename').value;
+    const parts = parseLocationPath(selected);
+    showRenameCompartmentModal(parts, onDoneCallback);
+  });
+}
+
+/* ---------- Statut de péremption ---------- */
+function daysUntil(dateStr){
+  if(!dateStr) return 99999;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const [y, m] = dateStr.split('-').map(n=>parseInt(n,10));
+  const lastDayOfMonth = new Date(y, m, 0);
+  return Math.round((lastDayOfMonth - today) / 86400000);
+}
+function statusFor(dateStr){
+  if(!dateStr) return {cls:'st-amber', label:'DATE ?', days: 99999};
+  const days = daysUntil(dateStr);
+  if(days < 0) return {cls:'st-red', label:'PÉRIMÉ', days};
+  if(days <= 30) return {cls:'st-amber', label:'J-'+days, days};
+  return {cls:'st-green', label:'J-'+days, days};
+}
+function countAlerts(list){
+  let red=0, amber=0;
+  (list||[]).forEach(it=>{ const s=statusFor(it.expiry); if(s.cls==='st-red') red++; else if(s.cls==='st-amber') amber++; });
+  return {red, amber};
+}
+
+/* ---------- Navigation ---------- */
+function renderNavbar(){
+  subbarZone.innerHTML = '';
+  if(view === 'home'){ navbar.innerHTML=''; return; }
+  if(view === 'kits'){
+    const totalUrgent = kitsIndex.reduce((s,k)=>s+(k.redCount||0)+(k.amberCount||0),0);
+    navbar.innerHTML = `
+      <span class="current">Mes kits</span>
+      <span class="spacer"></span>
+      <button class="link" id="urgentBtn">${totalUrgent>0 ? '⚠ à changer ('+totalUrgent+')' : 'à changer'}</button>
+      <button class="link" id="homeBtn">accueil</button>`;
+    document.getElementById('urgentBtn').addEventListener('click', ()=>{ view='urgent'; renderAll(); });
+    document.getElementById('homeBtn').addEventListener('click', ()=>{ view='home'; renderAll(); });
+  } else if(view === 'urgent'){
+    navbar.innerHTML = `
+      <button class="link" id="backToKitsBtn">‹ Kits</button>
+      <span class="crumb">›</span>
+      <span class="current">À changer</span>
+      <span class="spacer"></span>
+      <button class="link" id="homeBtn">accueil</button>`;
+    document.getElementById('backToKitsBtn').addEventListener('click', ()=>{ kitsIndex = storGet('kits')||[]; view='kits'; renderAll(); });
+    document.getElementById('homeBtn').addEventListener('click', ()=>{ view='home'; renderAll(); });
+  } else {
+    navbar.innerHTML = `
+      <button class="link" id="backBtnNav">${currentSubPath.length > 0 ? '‹ Retour' : '‹ Kits'}</button>
+      <span class="crumb">›</span>
+      <span class="current">${escapeHtml(currentSubPath.length ? currentSubPath[currentSubPath.length-1] : currentKitName)}</span>
+      <span class="spacer"></span>
+      <button class="link" id="kitPdfBtn">📄 PDF</button>
+      ${currentSubPath.length === 0 ? `<button class="link" id="renameKitBtn">renommer</button>` : ''}`;
+    
+    document.getElementById('backBtnNav').addEventListener('click', ()=>{
+      if(currentSubPath.length > 0){
+        currentSubPath.pop();
+        renderAll();
+      } else {
+        kitsIndex = storGet('kits')||[];
+        view='kits';
+        renderAll();
+      }
+    });
+    document.getElementById('kitPdfBtn').addEventListener('click', exportKitPDF);
+    const renBtn = document.getElementById('renameKitBtn');
+    if(renBtn) renBtn.addEventListener('click', showRenameKitModal);
+
+    let breadcrumbHtml = `<button data-idx="-1">${escapeHtml(currentKitName)}</button>`;
+    currentSubPath.forEach((sp, idx)=>{
+      breadcrumbHtml += ` <span>›</span> <button data-idx="${idx}">${escapeHtml(sp)}</button>`;
+    });
+
+    const sortLabel = kitSortMode === 'name' ? '🔤 A-Z' : '⏳ Péremption';
+
+    subbarZone.innerHTML = `
+      <div class="subbar">
+        <div class="subbar-path" id="subbarCrumbs">${breadcrumbHtml}</div>
+        <button class="sort-toggle-btn" id="toggleSortBtn" title="Changer le tri">${sortLabel}</button>
+      </div>`;
+
+    document.querySelectorAll('#subbarCrumbs button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = parseInt(btn.dataset.idx, 10);
+        if(idx === -1) currentSubPath = [];
+        else currentSubPath = currentSubPath.slice(0, idx+1);
+        renderAll();
+      });
+    });
+
+    document.getElementById('toggleSortBtn').addEventListener('click', ()=>{
+      kitSortMode = (kitSortMode === 'name') ? 'expiry' : 'name';
+      renderAll();
+      toast(kitSortMode === 'name' ? 'Tri par ordre alphabétique' : 'Tri par date de péremption');
+    });
+  }
+}
+
+/* ---------- Accueil ---------- */
+function renderHome(){
+  fabZone.innerHTML = '';
+  alertZone.innerHTML = '';
+  const img = storGet('home-image');
+  mainZone.innerHTML = `
+    <div class="homewrap">
+      <div class="homeimg" id="homeImgWrap">
+        ${img ? `<img src="${img}" alt="">` : `<div class="homeimg-placeholder">Appuie ici pour ajouter<br>une image</div>`}
+      </div>
+      <input type="file" id="homeImgInput" accept="image/*" style="display:none">
+      <button class="link-change" id="changeImgBtn">changer l'image</button>
+      <div class="homebtns">
+        <button class="hp" id="goKitsBtn">📦 Mes kits</button>
+        <button class="hs" id="exportMailBtn">📄 Exporter en PDF</button>
+      </div>
+    </div>`;
+  document.getElementById('homeImgWrap').addEventListener('click', ()=>document.getElementById('homeImgInput').click());
+  document.getElementById('changeImgBtn').addEventListener('click', ()=>document.getElementById('homeImgInput').click());
+  document.getElementById('homeImgInput').addEventListener('change', handleHomeImageChange);
+  document.getElementById('goKitsBtn').addEventListener('click', ()=>{ kitsIndex = storGet('kits')||[]; view='kits'; renderAll(); });
+  document.getElementById('exportMailBtn').addEventListener('click', exportPDF);
+}
+
+function handleHomeImageChange(e){
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const img = new Image();
+    img.onload = function(){
+      const maxSide = 900;
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      const ok = storSet('home-image', dataUrl);
+      if(!ok) saveFailToast(); else toast('Image mise à jour');
+      renderAll();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function rowsFromItems(kitName, kitItems){
+  return kitItems.map(it=>{
+    const s = statusFor(it.expiry);
+    const statusLabel = s.cls==='st-red' ? 'Périmé' : (s.cls==='st-amber' ? 'À changer' : 'OK');
+    return [kitName, it.name, it.mg?it.mg+' mg':'—', it.ml?it.ml+' ml':'—', it.location||'—', String(it.qty||1), it.expiry?formatDateFr(it.expiry):'—', statusLabel, it.modifiedDate?formatDateFrFull(it.modifiedDate):'—'];
+  });
+}
+
+function generatePDFTable(title, rows, customHeaders, columnStyles){
+  if(typeof window.jspdf === 'undefined'){
+    toast("Le générateur PDF n'a pas pu se charger — réessaie.");
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait' });
+  doc.setFontSize(14);
+  doc.text(title, 14, 15);
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+  doc.text('Généré le '+new Date().toLocaleDateString('fr-FR'), 14, 21);
+  
+  const headers = customHeaders || [['Kit','Produit','mg','ml','Emplacement','Qté','Péremption','Statut','Modifié le']];
+  
+  doc.autoTable({
+    startY: 26,
+    head: headers,
+    body: rows.length ? rows : [['—','Aucun produit','—','—','—','—','—','—','—']],
+    styles:{ fontSize:8, cellPadding:3.5, valign:'middle' },
+    headStyles:{ fillColor:[43,76,86], textColor:[255,255,255], fontStyle:'bold' },
+    alternateRowStyles:{ fillColor:[244,246,242] },
+    columnStyles: columnStyles || {}
+  });
+
+  const filename = 'vigie-dlu-'+new Date().toISOString().slice(0,10)+'.pdf';
+  const blob = doc.output('blob');
+
+  (async ()=>{
+    try{
+      if(navigator.canShare){
+        const file = new File([blob], filename, {type:'application/pdf'});
+        if(navigator.canShare({files:[file]})){
+          await navigator.share({files:[file], title});
+          return;
+        }
+      }
+    }catch(e){}
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  })();
+}
+
+function exportPDF(){
+  let rows = [];
+  kitsIndex.forEach(k=>{
+    const kitItems = (storGet('stock:'+k.id) || []).slice().sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+    rows = rows.concat(rowsFromItems(k.name, kitItems));
+  });
+  generatePDFTable('VIGIE DLU — Détail des kits', rows);
+}
+
+function exportUrgentPDF(){
+  const groups = computeUrgentGroups();
+  let rows = [];
+  groups.forEach(g => {
+    g.items.forEach(it => {
+      const s = statusFor(it.expiry);
+      const dose = [it.mg ? it.mg+' mg' : '', it.ml ? it.ml+' ml' : ''].filter(Boolean).join(' · ');
+      const descr = dose ? `${it.name} (${dose})` : it.name;
+      const statusLabel = s.cls === 'st-red' ? 'PÉRIMÉ' : 'À CHANGER';
+      
+      rows.push([
+        g.kitName,
+        descr,
+        it.expiry ? formatDateFr(it.expiry) : '—',
+        '', 
+        String(it.qty || 1),
+        it.location || '—',
+        statusLabel,
+        '[   ]'
+      ]);
+    });
+  });
+
+  const urgentHeaders = [['Kit', 'Produit & Dosage', 'DLU actuelle', 'Nouvelle date', 'Qté', 'Emplacement', 'Statut', 'Fait']];
+  const colStyles = {
+    0: { cellWidth: 26 },
+    1: { cellWidth: 42 },
+    2: { cellWidth: 22, halign: 'center' },
+    3: { cellWidth: 26, halign: 'center' },
+    4: { cellWidth: 10, halign: 'center' },
+    5: { cellWidth: 32 },
+    6: { cellWidth: 18, halign: 'center' },
+    7: { cellWidth: 12, halign: 'center' }
+  };
+
+  generatePDFTable('VIGIE DLU — Fiche de remplacement des périmés', rows, urgentHeaders, colStyles);
+}
+
+function exportKitPDF(){
+  const sortedItems = [...items].sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+  const rows = rowsFromItems(currentKitName, sortedItems);
+  generatePDFTable('VIGIE DLU — '+currentKitName, rows);
+}
+
+/* ---------- Liste des kits ---------- */
+function renderKitsList(){
+  fabZone.innerHTML = `<button class="primaryfab" id="newKitBtn" style="flex:1">+ Nouveau kit</button>`;
+  document.getElementById('newKitBtn').addEventListener('click', showNewKitModal);
+
+  if(!kitsIndex.length){
+    alertZone.innerHTML = '';
+    mainZone.innerHTML = `<div class="empty">Aucun kit pour l'instant.<br>Crée ton premier kit avec le bouton ci-dessous.</div>`;
+    return;
+  }
+  let totalRed=0, totalAmber=0;
+  kitsIndex.forEach(k=>{ totalRed += (k.redCount||0); totalAmber += (k.amberCount||0); });
+  if(totalRed+totalAmber === 0){
+    alertZone.innerHTML = `<div class="alertbar ok">Tout est en ordre — rien n'est périmé ni ne périme dans les 30 prochains jours.</div>`;
+  } else {
+    const parts=[];
+    if(totalRed) parts.push(totalRed+' périmé(s)');
+    if(totalAmber) parts.push(totalAmber+' à changer sous 30 jours');
+    alertZone.innerHTML = `<div class="alertbar has-red" id="alertGoUrgent" style="cursor:pointer;">⚠ ${parts.join(' · ')} au total — voir la liste ›</div>`;
+    document.getElementById('alertGoUrgent').addEventListener('click', ()=>{ view='urgent'; renderAll(); });
+  }
+
+  mainZone.innerHTML = kitsIndex.map((k,idx)=>`
+    <div class="kitcard" data-kitid="${k.id}">
+      <div class="reorder">
+        <button class="orderbtn" data-move="-1" data-kitid="${k.id}" ${idx===0?'disabled':''}>▲</button>
+        <button class="orderbtn" data-move="1" data-kitid="${k.id}" ${idx===kitsIndex.length-1?'disabled':''}>▼</button>
+      </div>
+      <div class="kinfo">
+        <div class="kname">${escapeHtml(k.name)}</div>
+        <div class="kmeta">${k.itemCount||0} produit(s)</div>
+      </div>
+      <div class="kbadges">
+        ${k.redCount ? `<span class="pill st-red">${k.redCount} urg.</span>`:''}
+        ${k.amberCount ? `<span class="pill st-amber">${k.amberCount}</span>`:''}
+      </div>
+      <button class="editbtn" data-editid="${k.id}" title="Renommer">✏</button>
+    </div>`).join('') + `<div class="footlink">
+        <button id="exportBackupBtn">Exporter une sauvegarde</button> ·
+        <button id="importBackupBtn">Restaurer une sauvegarde</button> ·
+        <button id="resetAllBtn">Réinitialiser toutes les données</button>
+      </div>`;
+
+  mainZone.querySelectorAll('.kitcard').forEach(card=>{
+    card.addEventListener('click', (e)=>{
+      if(e.target.closest('.editbtn') || e.target.closest('.orderbtn')) return;
+      openKit(card.dataset.kitid);
+    });
+  });
+  mainZone.querySelectorAll('.editbtn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{ e.stopPropagation(); openKit(btn.dataset.editid, true); });
+  });
+  mainZone.querySelectorAll('.orderbtn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(btn.disabled) return;
+      moveKit(btn.dataset.kitid, parseInt(btn.dataset.move,10));
+    });
+  });
+  const resetBtn = document.getElementById('resetAllBtn');
+  if(resetBtn) resetBtn.addEventListener('click', async ()=>{
+    const sure = await showConfirm('Supprimer définitivement tous les kits, produits et l\'image d\'accueil enregistrés sur cet appareil ?');
+    if(!sure) return;
+    Object.keys(localStorage).filter(k=>k.startsWith('vigie:')).forEach(k=>localStorage.removeItem(k));
+    location.reload();
+  });
+  const exportBtn = document.getElementById('exportBackupBtn');
+  if(exportBtn) exportBtn.addEventListener('click', exportBackup);
+  const importBtn = document.getElementById('importBackupBtn');
+  if(importBtn) importBtn.addEventListener('click', showImportModal);
+}
+
+/* ---------- Sauvegarde / Restauration ---------- */
+function gatherAllData(){
+  const data = {};
+  Object.keys(localStorage).forEach(k=>{
+    if(k.startsWith('vigie:')) data[k.slice('vigie:'.length)] = localStorage.getItem(k);
+  });
+  return data;
+}
+function restoreAllData(data){
+  Object.keys(data).forEach(k=> localStorage.setItem('vigie:'+k, data[k]));
+}
+
+async function exportBackup(){
+  const data = gatherAllData();
+  const json = JSON.stringify(data, null, 2);
+  const filename = 'vigie-dlu-sauvegarde-' + new Date().toISOString().slice(0, 10) + '.json';
+  const blob = new Blob([json], { type: 'application/json' });
+
+  try {
+    const file = new File([blob], filename, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: 'Sauvegarde VIGIE DLU',
+        text: 'Fichier de sauvegarde VIGIE DLU'
+      });
+      return;
+    }
+  } catch(e) {
+    if (e.name === 'AbortError') return;
+  }
+
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Fichier téléchargé : ' + filename);
+    return;
+  } catch(e) {}
+
+  showBackupTextModal(json);
+}
+
+function showBackupTextModal(json){
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Sauvegarde</h2>
+    <div class="hint">Copie tout ce texte pour le garder en sécurité.</div>
+    <textarea id="backupText" style="width:100%;height:220px;font-family:var(--mono);font-size:11px;padding:10px;border:1.5px solid var(--line);border-radius:8px;" readonly>${escapeHtml(json)}</textarea>
+    <div class="modalbtns"><button class="btn-primary" id="closeBackupBtn" style="flex:1">Fermer</button></div>
+  </div></div>`;
+  document.getElementById('closeBackupBtn').addEventListener('click', closeModal);
+}
+function showImportModal(){
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Restaurer une sauvegarde</h2>
+    <div class="hint">Sélectionne un fichier .json exporté précédemment.</div>
+    <input type="file" id="restoreFileInput" accept="application/json,.json">
+    <div class="modalbtns"><button class="btn-secondary" id="cancelRestoreBtn" style="flex:1">Annuler</button></div>
+  </div></div>`;
+  document.getElementById('cancelRestoreBtn').addEventListener('click', closeModal);
+  document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev)=>{
+      let data;
+      try{ data = JSON.parse(ev.target.result); }
+      catch(err){ toast('Fichier invalide'); return; }
+      const sure = await showConfirm('Remplacer toutes les données actuelles sur cet appareil ?');
+      if(!sure) return;
+      restoreAllData(data);
+      toast('Sauvegarde restaurée');
+      location.reload();
+    };
+    reader.readAsText(file);
+  });
+}
+
+function moveKit(kitId, direction){
+  const idx = kitsIndex.findIndex(k=>k.id===kitId);
+  if(idx===-1) return;
+  const swapWith = idx + direction;
+  if(swapWith<0 || swapWith>=kitsIndex.length) return;
+  [kitsIndex[idx], kitsIndex[swapWith]] = [kitsIndex[swapWith], kitsIndex[idx]];
+  const ok = storSet('kits', kitsIndex);
+  if(!ok) saveFailToast();
+  renderAll();
+}
+
+function showNewKitModal(){
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Nouveau kit</h2>
+    <div class="field"><label>Nom du kit</label>
+      <input type="text" id="newKitName" placeholder="ex. Trousse chambre 3">
+    </div>
+    <div class="modalbtns">
+      <button class="btn-secondary" id="cancelNewKitBtn">Annuler</button>
+      <button class="btn-primary" id="saveNewKitBtn">Créer</button>
+    </div>
+  </div></div>`;
+  document.getElementById('cancelNewKitBtn').addEventListener('click', closeModal);
+  document.getElementById('saveNewKitBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('newKitName').value.trim();
+    if(!name){ toast('Donne un nom au kit'); return; }
+    const kit = {id:'kit_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, itemCount:0, redCount:0, amberCount:0};
+    kitsIndex.push(kit);
+    const ok = storSet('kits', kitsIndex);
+    if(!ok) saveFailToast();
+    closeModal();
+    renderAll();
+    toast('Kit créé');
+  });
+}
+
+function showRenameKitModal(){
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Renommer le kit</h2>
+    <div class="field"><label>Nom du kit</label>
+      <input type="text" id="renameKitInput" value="${escapeHtml(currentKitName)}">
+    </div>
+    <div class="modalbtns">
+      <button class="btn-danger" id="deleteKitBtn">Supprimer ce kit</button>
+      <button class="btn-primary" id="saveRenameBtn">Enregistrer</button>
+    </div>
+  </div></div>`;
+  document.getElementById('saveRenameBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('renameKitInput').value.trim();
+    if(!name){ toast('Le nom ne peut pas être vide'); return; }
+    const k = kitsIndex.find(k=>k.id===currentKitId);
+    k.name = name;
+    currentKitName = name;
+    const ok = storSet('kits', kitsIndex);
+    if(!ok) saveFailToast();
+    closeModal();
+    renderAll();
+    toast('Kit renommé');
+  });
+  document.getElementById('deleteKitBtn').addEventListener('click', async ()=>{
+    const sure = await showConfirm(`Supprimer le kit "${currentKitName}" et tout son contenu ?`);
+    if(!sure) return;
+    kitsIndex = kitsIndex.filter(k=>k.id!==currentKitId);
+    const ok = storSet('kits', kitsIndex);
+    if(!ok) saveFailToast();
+    storDelete('stock:'+currentKitId);
+    storDelete('comp:'+currentKitId);
+    storDelete('comp-colors:'+currentKitId);
+    closeModal();
+    view='kits';
+    renderAll();
+    toast('Kit supprimé');
+  });
+}
+
+function openKit(kitId, renameDirectly){
+  const k = kitsIndex.find(k=>k.id===kitId);
+  if(!k) return;
+  currentKitId = k.id;
+  currentKitName = k.name;
+  items = storGet('stock:'+kitId) || [];
+  currentSubPath = [];
+  view = 'detail';
+  renderAll();
+  if(renameDirectly) showRenameKitModal();
+}
+
+/* ---------- Détail d'un kit ---------- */
+function renderKitDetail(){
+  fabZone.innerHTML = `
+    <button class="secondaryfab" id="openAddCompartmentBtn">+ Compartiment</button>
+    <button class="primaryfab" id="openManualBtn">+ Produit</button>
+  `;
+  document.getElementById('openAddCompartmentBtn').addEventListener('click', showNewCompartmentModal);
+  document.getElementById('openManualBtn').addEventListener('click', ()=>showItemForm());
+
+  const depth = currentSubPath.length;
+  const subFoldersMap = {};
+  const directItems = [];
+
+  items.forEach(it => {
+    const itPath = parseLocationPath(it.location);
+    let matchesCurrent = true;
+    for(let i=0; i<depth; i++){
+      if((itPath[i]||'').toLowerCase() !== (currentSubPath[i]||'').toLowerCase()){
+        matchesCurrent = false;
+        break;
+      }
+    }
+    if(!matchesCurrent) return;
+
+    if(itPath.length === depth){
+      directItems.push(it);
+    } else if(itPath.length > depth){
+      const subName = itPath[depth];
+      if(!subFoldersMap[subName]) subFoldersMap[subName] = [];
+      subFoldersMap[subName].push(it);
+    }
+  });
+
+  const explicitCompartments = storGet('comp:'+currentKitId) || [];
+  explicitCompartments.forEach(cPathStr => {
+    const cPath = parseLocationPath(cPathStr);
+    if(cPath.length === depth + 1){
+      let match = true;
+      for(let i=0; i<depth; i++){
+        if((cPath[i]||'').toLowerCase() !== (currentSubPath[i]||'').toLowerCase()){ match = false; break; }
+      }
+      if(match){
+        const subName = cPath[depth];
+        if(!subFoldersMap[subName]) subFoldersMap[subName] = [];
+      }
+    }
+  });
+
+  const allSubItems = [...directItems];
+  Object.values(subFoldersMap).forEach(arr => allSubItems.push(...arr));
+
+  if(!allSubItems.length && Object.keys(subFoldersMap).length === 0){
+    alertZone.innerHTML = '';
+    mainZone.innerHTML = `<div class="empty">Ce compartiment est vide.<br>Ajoute un sous-compartiment ou un produit ci-dessous.</div>`;
+    return;
+  }
+
+  const {red, amber} = countAlerts(allSubItems);
+  if(red+amber === 0){
+    alertZone.innerHTML = `<div class="alertbar ok">Tout est en ordre ici — aucun produit périmé ni sous 30 jours.</div>`;
+  } else {
+    const parts=[];
+    if(red) parts.push(red+' périmé(s)');
+    if(amber) parts.push(amber+' à changer sous 30 jours');
+    alertZone.innerHTML = `<div class="alertbar has-red" id="alertGoUrgent" style="cursor:pointer;">⚠ ${parts.join(' · ')} — voir la liste ›</div>`;
+    document.getElementById('alertGoUrgent').addEventListener('click', ()=>{ view='urgent'; renderAll(); });
+  }
+
+  const folderNames = Object.keys(subFoldersMap).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+
+  if(kitSortMode === 'name'){
+    directItems.sort((a,b)=> a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+  } else {
+    directItems.sort((a,b)=> daysUntil(a.expiry) - daysUntil(b.expiry));
+  }
+
+  let html = '';
+  const folderColors = getFolderColors();
+
+  if(folderNames.length > 0){
+    html += `<div class="section-label">Compartiments (${folderNames.length}) — <span style="text-transform:none;opacity:.8;">maintien long pour options</span></div>`;
+    html += folderNames.map(fName => {
+      const fItems = subFoldersMap[fName] || [];
+      const alerts = countAlerts(fItems);
+      const fPathStr = joinLocationPath([...currentSubPath, fName]);
+      const col = folderColors[fPathStr] || 'default';
+      return `
+        <div class="foldercard fcol-${col}" data-folder="${escapeHtml(fName)}">
+          <div class="folder-info">
+            <div class="folder-name">${escapeHtml(fName)}</div>
+            <div class="folder-meta">${fItems.length} référence(s)</div>
+          </div>
+          <div class="kbadges">
+            ${alerts.red ? `<span class="pill st-red">${alerts.red} urg.</span>`:''}
+            ${alerts.amber ? `<span class="pill st-amber">${alerts.amber}</span>`:''}
+            <span class="folder-arrow">›</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  if(directItems.length > 0){
+    html += `<div class="section-label" style="margin-top:${folderNames.length ? '20px' : '0'};">Matériel & Médicaments (${directItems.length})</div>`;
+    html += directItems.map(it => {
+      const s = statusFor(it.expiry);
+      const dl = doseLine(it);
+      return `
+        <div class="item ${s.cls}" data-id="${it.id}">
+          <div class="info">
+            <div class="name">${escapeHtml(it.name)}</div>
+            ${dl ? `<div class="dose">${escapeHtml(dl)}</div>` : ''}
+            <div class="meta">${it.expiry ? formatDateFr(it.expiry) : 'date inconnue'}</div>
+            ${it.modifiedDate ? `<div class="checked">✓ Modifié le ${formatDateFrFull(it.modifiedDate)}</div>` : ''}
+          </div>
+          <div class="qty">x${it.qty||1}</div>
+          <div class="badge ${s.cls}">${s.label}</div>
+          <button class="del del-item" data-id="${it.id}" title="Supprimer">✕</button>
+        </div>`;
+    }).join('');
+  }
+
+  html += `<div class="footlink"><button id="scrollTopBtn">⬆ Haut de page</button></div>`;
+  mainZone.innerHTML = html;
+
+  const scrollTopBtn = document.getElementById('scrollTopBtn');
+  if(scrollTopBtn) scrollTopBtn.addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'}));
+
+  mainZone.querySelectorAll('.foldercard').forEach(fc => {
+    let pressTimer = null;
+    let isLongPress = false;
+
+    function startPress(){
+      isLongPress = false;
+      pressTimer = setTimeout(()=>{
+        isLongPress = true;
+        showFolderActionMenu(fc.dataset.folder);
+      }, 500);
+    }
+    function cancelPress(){
+      if(pressTimer) clearTimeout(pressTimer);
+    }
+
+    fc.addEventListener('touchstart', startPress, {passive:true});
+    fc.addEventListener('touchend', (e)=>{
+      cancelPress();
+      if(isLongPress){ e.preventDefault(); }
+    });
+    fc.addEventListener('touchmove', cancelPress);
+    fc.addEventListener('mousedown', startPress);
+    fc.addEventListener('mouseup', cancelPress);
+    fc.addEventListener('mouseleave', cancelPress);
+
+    fc.addEventListener('click', ()=>{
+      if(!isLongPress){
+        currentSubPath.push(fc.dataset.folder);
+        renderAll();
+      }
+    });
+
+    fc.addEventListener('contextmenu', (e)=>{
+      e.preventDefault();
+      showFolderActionMenu(fc.dataset.folder);
+    });
+  });
+
+  mainZone.querySelectorAll('.item').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      if(e.target.closest('.del-item')) return;
+      const it = items.find(i=>i.id===el.dataset.id);
+      if(it) showItemForm(it);
+    });
+  });
+
+  mainZone.querySelectorAll('.del-item').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const sure = await showConfirm('Supprimer ce produit ?');
+      if(!sure) return;
+      items = items.filter(i=>i.id !== btn.dataset.id);
+      const ok = storSet('stock:'+currentKitId, items);
+      if(!ok) saveFailToast();
+      updateKitSummary();
+      renderAll();
+    });
+  });
+}
+
+function updateKitSummary(){
+  const {red, amber} = countAlerts(items);
+  const k = kitsIndex.find(k=>k.id===currentKitId);
+  if(k){ k.itemCount = items.length; k.redCount = red; k.amberCount = amber; }
+  storSet('kits', kitsIndex);
+}
+
+/* ---------- Modale création compartiment ---------- */
+function showNewCompartmentModal(){
+  const parentName = currentSubPath.length ? currentSubPath[currentSubPath.length-1] : currentKitName;
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>Nouveau compartiment</h2>
+    <div class="hint">Sera créé à l'intérieur de : <strong>${escapeHtml(parentName)}</strong></div>
+    <div class="field">
+      <label>Nom du compartiment</label>
+      <input type="text" id="newCompName" placeholder="ex. Pochette lames, Trousse VVP, etc.">
+    </div>
+    <div class="modalbtns">
+      <button class="btn-secondary" id="cancelNewCompBtn">Annuler</button>
+      <button class="btn-primary" id="saveNewCompBtn">Créer</button>
+    </div>
+  </div></div>`;
+  document.getElementById('cancelNewCompBtn').addEventListener('click', closeModal);
+  document.getElementById('saveNewCompBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('newCompName').value.trim();
+    if(!name){ toast('Donne un nom au compartiment'); return; }
+    const fullPath = [...currentSubPath, name];
+    const fullPathStr = joinLocationPath(fullPath);
+    
+    const explicitCompartments = storGet('comp:'+currentKitId) || [];
+    if(!explicitCompartments.includes(fullPathStr)){
+      explicitCompartments.push(fullPathStr);
+      storSet('comp:'+currentKitId, explicitCompartments);
+    }
+    rememberPart(name);
+    closeModal();
+    renderAll();
+    toast('Compartiment créé');
+  });
+}
+
+/* ---------- "À changer" : liste urgente ---------- */
+function computeUrgentGroups(){
+  const groups = [];
+  kitsIndex.forEach(k=>{
+    const kitItems = storGet('stock:'+k.id) || [];
+    const urgent = kitItems.filter(it=>{ const c = statusFor(it.expiry).cls; return c==='st-red' || c==='st-amber'; });
+    if(urgent.length){
+      urgent.sort((a,b)=> daysUntil(a.expiry) - daysUntil(b.expiry));
+      groups.push({kitId:k.id, kitName:k.name, items:urgent});
+    }
+  });
+  groups.sort((a,b)=> a.kitName.localeCompare(b.kitName,'fr',{sensitivity:'base'}));
+  return groups;
+}
+
+function renderUrgentList(){
+  fabZone.innerHTML = '';
+  alertZone.innerHTML = '';
+  const groups = computeUrgentGroups();
+  if(!groups.length){
+    mainZone.innerHTML = '<div class="empty">Rien à changer dans les 30 prochains jours 🎉</div>';
+    return;
+  }
+  mainZone.innerHTML = `<button class="primaryfab" id="exportUrgentPdfBtn" style="width:100%;margin-bottom:16px;">📄 Générer le PDF de cette liste</button>` +
+  groups.map(g => `
+    <div class="loc-title">${escapeHtml(g.kitName)}</div>
+    ${g.items.map(it=>{
+      const s = statusFor(it.expiry);
+      const dl = doseLine(it);
+      return `<div class="item ${s.cls}" data-kitid="${g.kitId}" data-itemid="${it.id}" style="cursor:pointer;">
+        <div class="info">
+          <div class="name">${escapeHtml(it.name)}</div>${dl ? `<div class="dose">${escapeHtml(dl)}</div>` : ''}
+          ${it.location ? `<div class="location">📍 ${escapeHtml(it.location)}</div>` : ''}
+          <div class="meta">${it.expiry ? formatDateFr(it.expiry) : 'date inconnue'}</div>
+          ${it.modifiedDate ? `<div class="checked">✓ Modifié le ${formatDateFrFull(it.modifiedDate)}</div>` : ''}
+        </div>
+        <div class="qty">x${it.qty||1}</div>
+        <div class="badge ${s.cls}">${s.label}</div>
+      </div>`;
+    }).join('')}
+  `).join('');
+
+  document.getElementById('exportUrgentPdfBtn').addEventListener('click', exportUrgentPDF);
+  mainZone.querySelectorAll('.item').forEach(el=>{
+    el.addEventListener('click', ()=> openItemFromUrgent(el.dataset.kitid, el.dataset.itemid));
+  });
+}
+
+function openItemFromUrgent(kitId, itemId){
+  const k = kitsIndex.find(k=>k.id===kitId);
+  if(!k) return;
+  currentKitId = k.id;
+  currentKitName = k.name;
+  items = storGet('stock:'+kitId) || [];
+  const it = items.find(i=>i.id===itemId);
+  if(!it) return;
+  showItemForm(it);
+}
+
+/* ---------- Rendu global ---------- */
+function renderAll(){
+  renderNavbar();
+  if(view === 'home') renderHome();
+  else if(view === 'kits') renderKitsList();
+  else if(view === 'urgent') renderUrgentList();
+  else renderKitDetail();
+  updateAppBadge();
+}
+
+function updateAppBadge(){
+  try{
+    const totalUrgent = kitsIndex.reduce((s,k)=>s+(k.redCount||0)+(k.amberCount||0),0);
+    if('setAppBadge' in navigator){
+      if(totalUrgent > 0) navigator.setAppBadge(totalUrgent).catch(()=>{});
+      else if('clearAppBadge' in navigator) navigator.clearAppBadge().catch(()=>{});
+    }
+  }catch(e){}
+}
+function requestBadgePermissionOnce(){
+  try{
+    if('Notification' in window && Notification.permission === 'default'){
+      Notification.requestPermission().catch(()=>{});
+    }
+  }catch(e){}
+}
+
+/* ---------- Formulaire produit ---------- */
+function showItemForm(prefill){
+  prefill = prefill || {};
+  let currentLoc = prefill.id ? (prefill.location||'') : joinLocationPath(currentSubPath);
+  const knownKitCompartments = getAllKitCompartments(currentKitId);
+
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal">
+    <h2>${prefill.id ? 'Modifier / Déplacer le produit' : 'Ajouter un produit'}</h2>
+    <div class="field">
+      <label>Nom du produit *</label>
+      <input type="text" id="f-name" value="${escapeHtml(prefill.name||'')}" placeholder="ex. Adrénaline">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Dosage (mg) — optionnel</label>
+        <input type="number" step="any" id="f-mg" value="${escapeHtml(prefill.mg||'')}" placeholder="ex. 1">
+      </div>
+      <div class="field">
+        <label>Volume (ml) — optionnel</label>
+        <input type="number" step="any" id="f-ml" value="${escapeHtml(prefill.ml||'')}" placeholder="ex. 1">
+      </div>
+    </div>
+    <div class="field">
+      <label>Compartiment / Rangement</label>
+      <select id="f-location-select" style="margin-bottom:6px;">
+        <option value="__KEEP__">-- Choisir un compartiment existant --</option>
+        <option value="__ROOT__">À la racine du kit (aucun compartiment)</option>
+        ${knownKitCompartments.map(c => `<option value="${escapeHtml(c)}" ${c===currentLoc?'selected':''}>${escapeHtml(c)}</option>`).join('')}
+        <option value="__CUSTOM__">Autre / Créer un nouveau...</option>
+        <option value="__RENAME__">✏ Renommer un compartiment existant...</option>
+      </select>
+      <input type="text" id="f-location" value="${escapeHtml(currentLoc)}" placeholder="ex. Poche droite / Trousse VVP">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Mois de péremption *</label>
+        <input type="month" id="f-expiry" value="${(prefill.expiry||'').slice(0,7)}">
+      </div>
+      <div class="field">
+        <label>Quantité</label>
+        <input type="number" id="f-qty" min="1" value="${prefill.qty||1}">
+      </div>
+    </div>
+    ${prefill.id ? `
+    <div class="modalbtns">
+      <button class="btn-secondary" id="dynamicBtn" style="flex:1">Quitter</button>
+    </div>` : `
+    <div class="modalbtns">
+      <button class="btn-secondary" id="cancelFormBtn">Annuler</button>
+      <button class="btn-primary" id="saveItemBtn">Enregistrer</button>
+    </div>`}
+  </div></div>`;
+
+  const locSelect = document.getElementById('f-location-select');
+  const locInput = document.getElementById('f-location');
+
+  locSelect.addEventListener('change', ()=>{
+    if(locSelect.value === '__ROOT__'){
+      locInput.value = '';
+    } else if(locSelect.value === '__CUSTOM__'){
+      locInput.focus();
+    } else if(locSelect.value === '__RENAME__'){
+      const draft = {
+        id: prefill.id,
+        name: document.getElementById('f-name').value,
+        mg: document.getElementById('f-mg').value,
+        ml: document.getElementById('f-ml').value,
+        location: locInput.value,
+        expiry: document.getElementById('f-expiry').value,
+        qty: document.getElementById('f-qty').value
+      };
+      closeModal();
+      showSelectCompartmentToRenameModal(()=>{
+        showItemForm(draft);
+      });
+      return;
+    } else if(locSelect.value !== '__KEEP__'){
+      locInput.value = locSelect.value;
+    }
+    refreshDynamicBtn();
+  });
+
+  const trackedIds = ['f-name','f-mg','f-ml','f-location','f-expiry','f-qty'];
+  const initialSnapshot = trackedIds.map(id=>document.getElementById(id).value).join('|');
+  function hasChanged(){ return trackedIds.map(id=>document.getElementById(id).value).join('|') !== initialSnapshot; }
+
+  function doSave(){
+    const name = document.getElementById('f-name').value.trim();
+    const mg = document.getElementById('f-mg').value.trim();
+    const ml = document.getElementById('f-ml').value.trim();
+    const location = document.getElementById('f-location').value.trim();
+    const expiry = document.getElementById('f-expiry').value;
+    const qty = parseInt(document.getElementById('f-qty').value,10) || 1;
+    if(!name){ toast('Le nom du produit est requis'); return; }
+    if(!expiry){ toast('Le mois de péremption est requis'); return; }
+
+    if(prefill.id){
+      const it = items.find(i=>i.id===prefill.id);
+      Object.assign(it, {name, mg, ml, location, expiry, qty, modifiedDate: todayISO()});
+    } else {
+      items.push({id: 'it_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name, mg, ml, location, expiry, qty, modifiedDate: todayISO()});
+    }
+    parseLocationPath(location).forEach(p => rememberPart(p));
+    const ok = storSet('stock:'+currentKitId, items);
+    if(!ok) saveFailToast();
+    updateKitSummary();
+    closeModal();
+    renderAll();
+    toast('Produit enregistré');
+  }
+
+  function refreshDynamicBtn(){
+    const btn = document.getElementById('dynamicBtn');
+    if(!btn) return;
+    if(hasChanged()){
+      btn.textContent = 'Enregistrer';
+      btn.classList.remove('btn-secondary');
+      btn.classList.add('btn-primary');
+    } else {
+      btn.textContent = 'Quitter';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+    }
+  }
+
+  if(prefill.id){
+    trackedIds.forEach(id=>{
+      document.getElementById(id).addEventListener('input', refreshDynamicBtn);
+      document.getElementById(id).addEventListener('change', refreshDynamicBtn);
+    });
+    document.getElementById('dynamicBtn').addEventListener('click', ()=>{
+      if(hasChanged()) doSave(); else closeModal();
+    });
+  } else {
+    document.getElementById('cancelFormBtn').addEventListener('click', closeModal);
+    document.getElementById('saveItemBtn').addEventListener('click', doSave);
+  }
+}
+
+/* ---------- Démarrage automatique via fichier externe ---------- */
+function seedDefaultDataFromExternalFile(){
+  if(storGet('kits') !== null) return;
+  if(window.VIGIE_DEFAULT_BACKUP){
+    const backup = window.VIGIE_DEFAULT_BACKUP;
+    Object.keys(backup).forEach(key => {
+      try {
+        const val = backup[key];
+        let parsed;
+        try { parsed = JSON.parse(val); } catch(e) { parsed = val; }
+        storSet(key, parsed);
+      } catch(e){}
+    });
+  }
+}
+
+(function init(){
+  seedDefaultDataFromExternalFile();
+  kitsIndex = storGet('kits') || [];
+  requestBadgePermissionOnce();
+  view = 'home';
+  renderAll();
+})();
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VIGIE DLU">
+<meta name="theme-color" content="#2B4C56">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='180' height='180' rx='36' fill='%232B4C56'/%3E%3Ctext x='90' y='115' font-family='monospace' font-size='60' font-weight='700' fill='white' text-anchor='middle'%3EDLU%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' rx='12' fill='%232B4C56'/%3E%3Ctext x='32' y='40' font-family='monospace' font-size='20' font-weight='700' fill='white' text-anchor='middle'%3EDLU%3C/text%3E%3C/svg%3E">
+<title>VIGIE DLU</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --bg:#EDEFEA; --surface:#FFFFFF; --ink:#1B2A2E; --ink-muted:#5B6B6C;
